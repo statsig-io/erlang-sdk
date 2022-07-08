@@ -1,0 +1,14 @@
+{application, statsig,
+ [{description, "Statsig SDK for erlang and elixir"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["ISC"]},
+  {links, []}
+ ]}.
