@@ -1,6 +1,6 @@
 -module(network).
 
--export([start/0, stop/0, request/3]).
+-export([start/0, stop/0, request/4]).
 
 -import(
   utils,
@@ -17,9 +17,9 @@ stop() ->
   ssl:stop().
 
 
-request(ApiKey, Endpoint, Input) ->
+request(ApiKey, Endpoint, Input, Sync) ->
   Method = post,
-  URL = "https://statsigapi.net/v1/" ++ Endpoint,
+  URL = "http://localhost:3006/v1/" ++ Endpoint,
   Header =
     [
       {"STATSIG-API-KEY", ApiKey},
@@ -28,18 +28,19 @@ request(ApiKey, Endpoint, Input) ->
       {"STATSIG-SDK-VERSION", get_sdk_version()}
     ],
   Type = "application/json",
-  maps:put(<<"statsigMetadata">>, get_statsig_metadata, Input),
+  maps:put(<<"statsigMetadata">>, get_statsig_metadata(), Input),
   RequestBody = jiffy:encode(Input),
   HTTPOptions = [],
-  Options = [],
-  {ok, {{_, StatusCode, _}, _, Body}} =
-    httpc:request(
-      Method,
-      {URL, Header, Type, RequestBody},
-      HTTPOptions,
-      Options
-    ),
-  if
-    StatusCode < 300 -> Body;
+  Options = [{sync, true}],
+  case
+  httpc:request(Method, {URL, Header, Type, RequestBody}, HTTPOptions, Options) of
+    {ok, {{_, StatusCode, _}, _, Body}} ->
+      if
+        StatusCode < 300 -> Body;
+        true -> false
+      end;
+
+    {ok, RequestId} -> true;
+    {error, _} -> false;
     true -> false
   end.

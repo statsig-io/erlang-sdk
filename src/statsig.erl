@@ -8,6 +8,7 @@
     terminate/2,
     handle_call/3,
     handle_cast/2,
+    handle_info/2,
     check_gate/3,
     log_event/4,
     log_event/5,
@@ -16,19 +17,13 @@
 ).
 
 -import(utils, [get_timestamp/0]).
--import(network, [start/0, stop/0, request/3]).
+-import(network, [start/0, stop/0, request/4]).
 -import(evaluator, [eval_gate/3]).
 -import(logging, [get_event/4, get_exposure/4]).
 
-% Usage:
-% {ok, Pid} = gen_server:start(statsig, [{apiKey, "secret-"}], []).
-% statsig:check_gate(Pid, #{<<"userID">> => <<"1234">>}, <<"test">>).
-% statsig:check_gate(Pid, #{<<"userID">> => <<"12345">>}, <<"test">>).
-% statsig:log_event(Pid, #{<<"userID">> => <<"12345">>}, <<"custom_event">>, 12, #{<<"test">> => <<"val">>}).
-% statsig:flush(Pid).
 init([{apiKey, ApiKey}]) ->
   network:start(),
-  Body = network:request(ApiKey, "download_config_specs", #{}),
+  Body = network:request(ApiKey, "download_config_specs", #{}, true),
   if
     Body == false ->
       network:stop(),
@@ -46,11 +41,14 @@ init([{apiKey, ApiKey}]) ->
   end.
 
 
+-spec check_gate(pid(), map(), binary()) -> boolean().
 check_gate(Pid, User, Gate) -> gen_server:call(Pid, {User, Gate}).
 
+-spec log_event(pid(), map(), binary(), map()) -> none().
 log_event(Pid, User, EventName, Metadata) ->
   gen_server:cast(Pid, {log, User, EventName, undefined, Metadata}).
 
+-spec log_event(pid(), map(), binary(), binary() | number(), map()) -> none().
 log_event(Pid, User, EventName, Value, Metadata) ->
   gen_server:cast(Pid, {log, User, EventName, Value, Metadata}).
 
@@ -72,14 +70,14 @@ handle_cast(
   flush,
   [{configSpecs, _ConfigSpecs}, {logEvents, Events}, {apiKey, ApiKey}]
 ) ->
-  NewEvents = flush_events(ApiKey, Events),
-  {
-    noreply,
-    [{configSpecs, _ConfigSpecs}, {logEvents, NewEvents}, {apiKey, ApiKey}]
-  }.
+  flush_events(ApiKey, Events),
+  {noreply, [{configSpecs, _ConfigSpecs}, {logEvents, []}, {apiKey, ApiKey}]}.
 
 
+-spec flush(pid()) -> none().
 flush(Pid) -> gen_server:cast(Pid, flush).
+
+handle_info(In, State) -> {noreply, State}.
 
 handle_call(
   {User, Gate},
@@ -99,8 +97,7 @@ handle_call(
       },
       SecondaryExposures
     ),
-  NextEvents = [GateExposure | Events],
-  % TODO handle_events so this flushes before growing too big
+  NextEvents = handle_events([GateExposure | Events], ApiKey),
   {
     reply,
     GateValue,
@@ -110,17 +107,17 @@ handle_call(
 
 flush_events(ApiKey, Events) ->
   Input = #{<<"events">> => Events},
-  network:request(ApiKey, "rgstr", Input) /= false.
+  network:request(ApiKey, "rgstr", Input, false) /= false.
 
 
 handle_events(Events, ApiKey) ->
   if
-    length(Events) > 1000 ->
+    length(Events) > 999 ->
       % We've been failing to post events for too long
       % lets keep the most recent 500 events
-      lists:sublist(Events, 500);
+      lists:sublist(Events, 499);
 
-    length(Events) > 500 ->
+    length(Events) > 499 ->
       Success = flush_events(ApiKey, Events),
       if
         Success -> [];
