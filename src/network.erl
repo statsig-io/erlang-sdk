@@ -19,7 +19,7 @@ stop() ->
 
 request(ApiKey, Endpoint, Input, Sync) ->
   Method = post,
-  URL = "http://localhost:3006/v1/" ++ Endpoint,
+  URL = "https://statsigapi.net/v1/" ++ Endpoint,
   Header =
     [
       {"STATSIG-API-KEY", ApiKey},
@@ -31,7 +31,7 @@ request(ApiKey, Endpoint, Input, Sync) ->
   maps:put(<<"statsigMetadata">>, get_statsig_metadata(), Input),
   RequestBody = jiffy:encode(Input),
   HTTPOptions = [],
-  Options = [{sync, true}],
+  Options = [{sync, Sync}],
   case
   httpc:request(Method, {URL, Header, Type, RequestBody}, HTTPOptions, Options) of
     {ok, {{_, StatusCode, _}, _, Body}} ->

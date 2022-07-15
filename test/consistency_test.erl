@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(statsig, [check_gate/3, log_event/3, log_event/4, flush/1]).
+-import(statsig, [check_gate/3, get_config/3, log_event/3, log_event/4, flush/1]).
 -import(network, [request/4]).
 -import(os, [getenv/1]).
 
@@ -20,7 +20,9 @@ gate_test() ->
 test_input(Pid, Input) ->
   User = maps:get(<<"user">>, Input, #{}),
   FeatureGates = maps:get(<<"feature_gates_v2">>, Input, #{}),
-  maps:map(fun (K, V) -> test_gate(Pid, K, V, User) end, FeatureGates).
+  maps:map(fun (K, V) -> test_gate(Pid, K, V, User) end, FeatureGates),
+  DynamicConfigs = maps:get(<<"dynamic_configs">>, Input, #{}),
+  maps:map(fun (K, V) -> test_config(Pid, K, V, User) end, DynamicConfigs).
 
 test_gate(Pid, Name, Gate, User) ->
   if
@@ -43,6 +45,16 @@ test_gate(Pid, Name, Gate, User) ->
     true ->
       Result = statsig:check_gate(Pid, User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
-      ?assert(Result == ServerResult)
+      ?assert(Result == ServerResult, Name)
+  end.
+
+test_config(Pid, Name, Config, User) ->
+  if
+    Name == <<"operating_system_config">> ->
+      false;
+    true ->
+      Result = statsig:get_config(Pid, User, Name),
+      ServerResult = maps:get(<<"value">>, Config, false),
+      ?assert(Result == ServerResult, Name)
   end.
   
