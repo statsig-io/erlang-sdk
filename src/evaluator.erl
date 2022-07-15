@@ -39,7 +39,7 @@ eval(User, ConfigSpecs, ConfigDefinition) ->
   end.
 
 
-eval_rules(_User, _ConfigSpecs, [], _Config) -> {#{}, false, #{}, default, []};
+eval_rules(_User, _ConfigSpecs, [], Config) -> {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
 
 eval_rules(User, ConfigSpecs, [Rule | Rules], Config) ->
   {RuleResult, RuleJson, RuleID, _SecondaryExposures} =
