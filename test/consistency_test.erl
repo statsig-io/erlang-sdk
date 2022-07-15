@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(statsig, [check_gate/3, log_event/3, log_event/4, flush/1]).
+-import(statsig, [check_gate/3, get_config/3, log_event/3, log_event/4, flush/1]).
 -import(network, [request/4]).
 -import(os, [getenv/1]).
 
@@ -43,6 +43,30 @@ test_gate(Pid, Name, Gate, User) ->
     true ->
       Result = statsig:check_gate(Pid, User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
-      ?assert(Result == ServerResult)
+      ?assert(Result == ServerResult, Name)
+  end.
+
+test_config(Pid, Name, Config, User) ->
+  if
+    Name == <<"test_country">> ->
+      false;
+    Name == <<"test_id_list">> ->
+      false;
+    Name == <<"test_not_in_id_list">> ->
+      false;
+    Name == <<"test_time_before">> ->
+      false;
+    Name == <<"test_time_after">> ->
+      false;
+    Name == <<"test_time_before_string">> ->
+      false;
+    Name == <<"test_ua_os">> ->
+      false;
+    Name == <<"test_ua">> ->
+      false;
+    true ->
+      Result = statsig:get_config(Pid, User, Name),
+      ServerResult = maps:get(<<"value">>, Config, false),
+      ?assert(Result == ServerResult, Name)
   end.
   

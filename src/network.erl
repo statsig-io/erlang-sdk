@@ -19,7 +19,7 @@ stop() ->
 
 request(ApiKey, Endpoint, Input, Sync) ->
   Method = post,
-  URL = "http://localhost:3006/v1/" ++ Endpoint,
+  URL = "https://statsigapi.net/v1/" ++ Endpoint,
   Header =
     [
       {"STATSIG-API-KEY", ApiKey},
