@@ -2,27 +2,25 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(statsig, [check_gate/3, log_event/3, log_event/4, flush/1]).
--import(network, [request/4]).
--import(os, [getenv/1]).
-
 gate_test() ->
-  ApiKey = getenv("test_api_key"),
-  Body = request(ApiKey, "rulesets_e2e_test", #{}, true),
-  {ok, Pid} = gen_server:start(statsig, [{apiKey, ApiKey}], []),
-  TestData =  maps:get(<<"data">>, jiffy:decode(Body, [return_maps]), []),
-  lists:map(fun (Data) -> test_input(Pid, Data) end, TestData),
-  statsig:log_event(Pid, #{<<"userID">> => <<"321">>}, <<"custom_event">>, 12, #{<<"test">> => <<"val">>}),
-  statsig:log_event(Pid, #{<<"userID">> => <<"456">>}, <<"custom_event">>, <<"hello">>, #{<<"123">> => <<"444">>}),
-  statsig:log_event(Pid, #{<<"userID">> => <<"12345">>}, <<"custom_event">>, #{<<"test">> => <<"val">>}),
-  statsig:flush(Pid).
+  ApiKey = os:getenv("test_api_key"),
+  application:set_env(statsig, statsig_api_key, ApiKey),
+  application:start(statsig),
 
-test_input(Pid, Input) ->
+  Body = network:request(ApiKey, "rulesets_e2e_test", #{}, true),
+  TestData =  maps:get(<<"data">>, jiffy:decode(Body, [return_maps]), []),
+  lists:map(fun (Data) -> test_input(Data) end, TestData),
+  statsig:log_event(#{<<"userID">> => <<"321">>}, <<"custom_event">>, 12, #{<<"test">> => <<"val">>}),
+  statsig:log_event(#{<<"userID">> => <<"456">>}, <<"custom_event">>, <<"hello">>, #{<<"123">> => <<"444">>}),
+  statsig:log_event(#{<<"userID">> => <<"12345">>}, <<"custom_event">>, #{<<"test">> => <<"val">>}),
+  statsig:flush().
+
+test_input(Input) ->
   User = maps:get(<<"user">>, Input, #{}),
   FeatureGates = maps:get(<<"feature_gates_v2">>, Input, #{}),
-  maps:map(fun (K, V) -> test_gate(Pid, K, V, User) end, FeatureGates).
+  maps:map(fun (K, V) -> test_gate(K, V, User) end, FeatureGates).
 
-test_gate(Pid, Name, Gate, User) ->
+test_gate(Name, Gate, User) ->
   if
     Name == <<"test_country">> ->
       false;
@@ -41,7 +39,7 @@ test_gate(Pid, Name, Gate, User) ->
     Name == <<"test_ua">> ->
       false;
     true ->
-      Result = statsig:check_gate(Pid, User, Name),
+      Result = statsig:check_gate(User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
       ?assert(Result == ServerResult)
   end.

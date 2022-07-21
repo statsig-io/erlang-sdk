@@ -6,8 +6,7 @@
 
 -spec get_timestamp() -> list().
 get_timestamp() ->
-  {Mega, Sec, Micro} = os:timestamp(),
-  integer_to_list((Mega * 1000000 + Sec) * 1000 + round(Micro / 1000)).
+  integer_to_list(os:system_time(millisecond)).
 
 
 -spec get_statsig_metadata() -> map().

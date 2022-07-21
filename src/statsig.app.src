@@ -2,12 +2,15 @@
  [{description, "Statsig SDK for erlang and elixir"},
   {vsn, "0.1.0"},
   {registered, []},
+  {mod, {statsig, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    inets,
+    ssl
    ]},
-  {env,[]},
-  {modules, []},
+  {env,[{statsig_api, "https://statsigapi.net/v1/"}]},
+  {modules, [gen_server]},
 
   {licenses, ["ISC"]},
   {links, []}
