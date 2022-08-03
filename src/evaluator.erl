@@ -35,7 +35,7 @@ eval(User, ConfigSpecs, ConfigDefinition) ->
       Rules = maps:get(<<"rules">>, ConfigDefinition, []),
       eval_rules(User, ConfigSpecs, Rules, ConfigDefinition);
 
-    true -> {#{}, false, #{}, <<"disabled">>, []}
+    true -> {#{}, false, maps:get(<<"defaultValue">>, ConfigDefinition, #{}), <<"disabled">>, []}
   end.
 
 
