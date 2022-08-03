@@ -6,8 +6,7 @@
 
 -spec get_timestamp() -> list().
 get_timestamp() ->
-  {Mega, Sec, Micro} = os:timestamp(),
-  integer_to_list((Mega * 1000000 + Sec) * 1000 + round(Micro / 1000)).
+  integer_to_list(os:system_time(millisecond)).
 
 
 -spec get_statsig_metadata() -> map().
@@ -18,4 +17,4 @@ get_statsig_metadata() ->
 get_sdk_version() -> "0.1.0".
 
 -spec get_sdk_type() -> list().
-get_sdk_type() -> "erlang".
+get_sdk_type() -> "erlang-server".
