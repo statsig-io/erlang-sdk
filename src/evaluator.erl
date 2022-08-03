@@ -98,10 +98,25 @@ get_evaluation_comparison(Condition, Value) ->
 
 compare(Value, Operator, Target) ->
   case Operator of
-    <<"gt">> -> Value > Target;
-    <<"gte">> -> Value >= Target;
-    <<"lt">> -> Value < Target;
-    <<"lte">> -> Value =< Target;
+    <<"gt">> -> 
+      if
+        Value == unknown -> false;
+        true -> Value > Target
+      end;
+    <<"gte">> ->
+      if
+        Value == unknown -> false;
+        true -> Value >= Target
+      end;
+    <<"lt">> ->
+      if
+        Value == unknown -> false;
+        true -> Value < Target
+      end;
+    <<"lte">> ->if
+        Value == unknown -> false;
+        true -> Value =< Target
+      end;
 
     <<"version_gt">> ->
       if
