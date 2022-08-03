@@ -18,7 +18,9 @@ gate_test() ->
 test_input(Input) ->
   User = maps:get(<<"user">>, Input, #{}),
   FeatureGates = maps:get(<<"feature_gates_v2">>, Input, #{}),
-  maps:map(fun (K, V) -> test_gate(K, V, User) end, FeatureGates).
+  maps:map(fun (K, V) -> test_gate(K, V, User) end, FeatureGates),
+  DynamicConfigs = maps:get(<<"dynamic_configs">>, Input, #{}),
+  maps:map(fun (K, V) -> test_config(K, V, User) end, DynamicConfigs).
 
 test_gate(Name, Gate, User) ->
   if
@@ -40,12 +42,27 @@ test_gate(Name, Gate, User) ->
       false;
     Name == <<"test_time_on">> ->
       false;
+    Name == <<"current_time">> ->
+      false;
     Name == <<"test_time_before">> ->
+      false;
+    Name == <<"test_time_before_failing">> ->
+      false;
+    Name == <<"test_time_after_failing">> ->
       false;
     true ->
       Result = statsig:check_gate(User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
-      
-      ?assert(Result == ServerResult)
+      ?assert(Result == ServerResult, Name)
+  end.
+
+test_config(Name, Config, User) ->
+  if
+    Name == <<"operating_system_config">> ->
+      false;
+    true ->
+      Result = statsig:get_config(User, Name),
+      ServerResult = maps:get(<<"value">>, Config, false),
+      ?assert(Result == ServerResult, Name)
   end.
   

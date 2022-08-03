@@ -55,11 +55,23 @@ handle_cast(
 handle_info(_In, State) -> {noreply, State}.
 
 handle_call(
-  {User, Gate},
+  {Type, User, Name},
   _From,
+  State
+) ->
+  case Type of
+    gate ->
+      handle_gate(User, Name, State);
+    _Other ->
+      handle_config(User, Name, State)
+  end.
+
+handle_gate(
+  User,
+  Gate,
   [{config_specs, ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
 ) ->
-  {_Rule, GateValue, RuleID, SecondaryExposures} =
+  {_Rule, GateValue, _JsonValue, RuleID, SecondaryExposures} =
     evaluator:eval_gate(User, ConfigSpecs, Gate),
   GateExposure =
     logging:get_exposure(
@@ -76,6 +88,30 @@ handle_call(
   {
     reply,
     GateValue,
+    [{config_specs, ConfigSpecs}, {log_events, NextEvents}, {api_key, ApiKey}]
+  }.
+
+handle_config(
+  User,
+  Config,
+  [{config_specs, ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
+) ->
+  {_Rule, GateValue, JsonValue, RuleID, SecondaryExposures} =
+    evaluator:eval_config(User, ConfigSpecs, Config),
+  ConfigExposure =
+    logging:get_exposure(
+      User,
+      <<"statsig::config_exposure">>,
+      #{
+        <<"config">> => Config,
+        <<"ruleID">> => RuleID
+      },
+      SecondaryExposures
+    ),
+  NextEvents = handle_events([ConfigExposure | Events], ApiKey),
+  {
+    reply,
+    JsonValue,
     [{config_specs, ConfigSpecs}, {log_events, NextEvents}, {api_key, ApiKey}]
   }.
 
