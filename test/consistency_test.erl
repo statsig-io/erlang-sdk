@@ -38,9 +38,14 @@ test_gate(Name, Gate, User) ->
       false;
     Name == <<"test_ua">> ->
       false;
+    Name == <<"test_time_on">> ->
+      false;
+    Name == <<"test_time_before">> ->
+      false;
     true ->
       Result = statsig:check_gate(User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
+      
       ?assert(Result == ServerResult)
   end.
   

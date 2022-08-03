@@ -4,7 +4,7 @@
 
 -export(
   [
-    start_link/0,
+    start_link/1,
     init/1,
     terminate/2,
     handle_call/3,
@@ -13,17 +13,14 @@
   ]
 ).
 
-start_link() ->
-  gen_server:start_link(?MODULE, [], []).
+start_link(ApiKey) ->
+  gen_server:start_link({local,?MODULE}, ?MODULE, [ApiKey], []).
 
-init([{api_key, ApiKey}]) ->
-  erlang:display(ApiKey),
-  Body = network:request(ApiKey, "download_config_specs", #{}, true),
-  if
-    Body == false ->
+init([ApiKey]) ->
+  case network:request(ApiKey, "download_config_specs", #{}, true) of
+    false ->
       {stop, "Initialize Failed"};
-
-    true ->
+    Body ->
       {
         ok,
         [

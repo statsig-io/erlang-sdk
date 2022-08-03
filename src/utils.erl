@@ -17,4 +17,4 @@ get_statsig_metadata() ->
 get_sdk_version() -> "0.1.0".
 
 -spec get_sdk_type() -> list().
-get_sdk_type() -> "erlang".
+get_sdk_type() -> "erlang-server".

@@ -4,7 +4,6 @@
 
 -export(
   [
-    start_link/0,
     start/2,
     stop/1,
     check_gate/2,
@@ -14,35 +13,25 @@
   ]
 ).
 
-start_link() ->
-  gen_server:start_link(?MODULE, [], []).
 
-start(_Type, _Params) ->
-  {ok, ApiKey} = application:get_env(statsig, statsig_api_key),
-  {ok, Pid} = gen_server:start(statsig_server, [{api_key, ApiKey}], []),
-  register(statsigsdk, Pid).
+start(_Type, _Args) ->
+  statsig_sup:start_link().
 
 -spec check_gate(map(), binary()) -> boolean().
 check_gate(User, Gate) -> 
-  Pid = whereis(statsigsdk),
-  gen_server:call(Pid, {User, Gate}).
+  gen_server:call(statsig_server, {User, Gate}).
 
 -spec log_event(map(), binary(), map()) -> none().
 log_event(User, EventName, Metadata) ->
-  Pid = whereis(statsigsdk),
-  gen_server:cast(Pid, {log, User, EventName, undefined, Metadata}).
+  gen_server:cast(statsig_server, {log, User, EventName, undefined, Metadata}).
 
 -spec log_event(map(), binary(), binary() | number(), map()) -> none().
 log_event(User, EventName, Value, Metadata) ->
-  Pid = whereis(statsigsdk),
-  gen_server:cast(Pid, {log, User, EventName, Value, Metadata}).
+  gen_server:cast(statsig_server, {log, User, EventName, Value, Metadata}).
 
 -spec flush() -> none().
 flush() -> 
-  Pid = whereis(statsigsdk),
-  gen_server:cast(Pid, flush).
+  gen_server:cast(statsig_server, flush).
   
 stop(_State) ->
-  Pid = whereis(statsigsdk),
-  gen_server:stop(Pid),
   ok.
