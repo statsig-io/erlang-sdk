@@ -30,8 +30,6 @@ test_gate(Name, Gate, User) ->
       false;
     Name == <<"test_not_in_id_list">> ->
       false;
-    Name == <<"test_time_before_string">> ->
-      false;
     Name == <<"test_ua_os">> ->
       false;
     Name == <<"test_ua">> ->
