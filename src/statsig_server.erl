@@ -17,7 +17,7 @@ start_link(ApiKey) ->
   gen_server:start_link({local,?MODULE}, ?MODULE, [ApiKey], []).
 
 init([ApiKey]) ->
-  case network:request(ApiKey, "download_config_specs", #{}, true) of
+  case network:request(ApiKey, "download_config_specs", #{}) of
     false ->
       {stop, "Initialize Failed"};
     Body ->
@@ -96,7 +96,7 @@ handle_config(
   Config,
   [{config_specs, ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
 ) ->
-  {_Rule, GateValue, JsonValue, RuleID, SecondaryExposures} =
+  {_Rule, _GateValue, JsonValue, RuleID, SecondaryExposures} =
     evaluator:eval_config(User, ConfigSpecs, Config),
   ConfigExposure =
     logging:get_exposure(
@@ -118,7 +118,7 @@ handle_config(
 
 flush_events(ApiKey, Events) ->
   Input = #{<<"events">> => Events},
-  network:request(ApiKey, "rgstr", Input, false) /= false.
+  network:request(ApiKey, "rgstr", Input) /= false.
 
 
 handle_events(Events, ApiKey) ->

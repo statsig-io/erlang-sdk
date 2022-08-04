@@ -6,8 +6,9 @@ gate_test() ->
   ApiKey = os:getenv("test_api_key"),
   application:set_env(statsig, statsig_api_key, ApiKey),
   application:start(statsig),
-
-  Body = network:request(ApiKey, "rulesets_e2e_test", #{}, true),
+  {ok, _Apps} = application:ensure_all_started(statsig),
+  
+  Body = network:request(ApiKey, "rulesets_e2e_test", #{}),
   TestData =  maps:get(<<"data">>, jiffy:decode(Body, [return_maps]), []),
   lists:map(fun (Data) -> test_input(Data) end, TestData),
   statsig:log_event(#{<<"userID">> => <<"321">>}, <<"custom_event">>, 12, #{<<"test">> => <<"val">>}),
