@@ -300,6 +300,15 @@ compare(Value, Operator, Target) ->
     <<"eq">> -> (Value =:= Target);
     <<"neq">> -> not (Value =:= Target);
 
+    <<"before">> ->
+      get_number(Value) < get_number(Target);
+    <<"after">> -> 
+      get_number(Value) > get_number(Target);
+    <<"on">> ->
+      {{ValueYear, ValueMonth, ValueDay}, _ValueTime} = calendar:system_time_to_universal_time(round(get_number(Value)), 1000),
+      {{TargetYear, TargetMonth, TargetDay}, _TargetTime} = calendar:system_time_to_universal_time(round(get_number(Target)), 1000),
+      (ValueYear == TargetYear) and (ValueMonth == TargetMonth) and (ValueDay == TargetDay);
+
     _ ->
       erlang:display("UNSUPPORTED OPERATOR"),
       erlang:display(operator),
@@ -441,6 +450,9 @@ get_evaluation_value(User, ConfigSpecs, Condition) ->
 
     <<"environment_field">> ->
       {false, false, get_from_environment(User, Field), []};
+
+    <<"current_time">> ->
+      {false, false, utils:get_timestamp(), []};
 
     <<"user_bucket">> ->
       AdditionValues = maps:get(<<"additionalValues">>, Condition, #{}),
