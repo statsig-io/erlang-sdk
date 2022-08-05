@@ -14,12 +14,12 @@
 ).
 
 start_link(ApiKey) ->
-  gen_server:start_link({local,?MODULE}, ?MODULE, [ApiKey], []).
+  gen_server:start_link({local, ?MODULE}, ?MODULE, [ApiKey], []).
 
 init([ApiKey]) ->
   case network:request(ApiKey, "download_config_specs", #{}) of
-    false ->
-      {stop, "Initialize Failed"};
+    false -> {stop, "Initialize Failed"};
+
     Body ->
       {
         ok,
@@ -30,6 +30,7 @@ init([ApiKey]) ->
         ]
       }
   end.
+
 
 handle_cast(
   {log, User, EventName, Value, Metadata},
@@ -52,19 +53,15 @@ handle_cast(
   flush_events(ApiKey, Events),
   {noreply, [{config_specs, _ConfigSpecs}, {log_events, []}, {api_key, ApiKey}]}.
 
+
 handle_info(_In, State) -> {noreply, State}.
 
-handle_call(
-  {Type, User, Name},
-  _From,
-  State
-) ->
+handle_call({Type, User, Name}, _From, State) ->
   case Type of
-    gate ->
-      handle_gate(User, Name, State);
-    _Other ->
-      handle_config(User, Name, State)
+    gate -> handle_gate(User, Name, State);
+    _Other -> handle_config(User, Name, State)
   end.
+
 
 handle_gate(
   User,
@@ -91,6 +88,7 @@ handle_gate(
     [{config_specs, ConfigSpecs}, {log_events, NextEvents}, {api_key, ApiKey}]
   }.
 
+
 handle_config(
   User,
   Config,
@@ -102,10 +100,7 @@ handle_config(
     logging:get_exposure(
       User,
       <<"statsig::config_exposure">>,
-      #{
-        <<"config">> => Config,
-        <<"ruleID">> => RuleID
-      },
+      #{<<"config">> => Config, <<"ruleID">> => RuleID},
       SecondaryExposures
     ),
   NextEvents = handle_events([ConfigExposure | Events], ApiKey),
