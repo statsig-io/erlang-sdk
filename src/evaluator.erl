@@ -1,41 +1,28 @@
 -module(evaluator).
 
--export([eval_gate/3, eval_config/3]).
+-export([find_and_eval/3]).
 
--spec eval_gate(map(), map(), list()) ->
+-spec find_and_eval(map(), list(), atom()) ->
   {map(), boolean(), map(), list(), list()}.
-eval_gate(User, ConfigSpecs, Gate) ->
-  Gates = maps:get(<<"feature_gates">>, ConfigSpecs, []),
-  ConfigSpec = find_definition(Gates, Gate),
-  eval(User, ConfigSpecs, ConfigSpec).
+find_and_eval(User, Name, Type) ->
+  Specs = ets:match(statsig_store, {Name, Type, '$1'}),
+  case length(Specs) of
+    1 ->
+      [[Spec]] = Specs,
+      eval(User, Spec);
 
-
--spec eval_config(map(), map(), list()) ->
-  {map(), boolean(), map(), list(), list()}.
-eval_config(User, ConfigSpecs, Config) ->
-  Configs = maps:get(<<"dynamic_configs">>, ConfigSpecs, []),
-  ConfigSpec = find_definition(Configs, Config),
-  eval(User, ConfigSpecs, ConfigSpec).
-
-
-find_definition([], _Gate) -> #{};
-
-find_definition([H | T], Gate) ->
-  Name = maps:get(<<"name">>, H, false),
-  if
-    Name == Gate -> H;
-    true -> find_definition(T, Gate)
+    _Other -> {#{}, false, #{}, "", []}
   end.
 
 
-eval(User, ConfigSpecs, ConfigDefinition) ->
+eval(User, ConfigDefinition) ->
   Enabled = maps:get(<<"enabled">>, ConfigDefinition, false),
   if
     map_size(ConfigDefinition) == 0 -> {#{}, false, #{}, "", []};
 
     Enabled ->
       Rules = maps:get(<<"rules">>, ConfigDefinition, []),
-      eval_rules(User, ConfigSpecs, Rules, ConfigDefinition);
+      eval_rules(User, Rules, ConfigDefinition);
 
     true ->
       {
@@ -48,12 +35,11 @@ eval(User, ConfigSpecs, ConfigDefinition) ->
   end.
 
 
-eval_rules(_User, _ConfigSpecs, [], Config) ->
+eval_rules(_User, [], Config) ->
   {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
 
-eval_rules(User, ConfigSpecs, [Rule | Rules], Config) ->
-  {RuleResult, RuleJson, RuleID, _SecondaryExposures} =
-    eval_rule(User, ConfigSpecs, Rule),
+eval_rules(User, [Rule | Rules], Config) ->
+  {RuleResult, RuleJson, RuleID, _SecondaryExposures} = eval_rule(User, Rule),
   if
     RuleResult ->
       Pass = eval_pass_percent(User, Rule, Config),
@@ -64,15 +50,15 @@ eval_rules(User, ConfigSpecs, [Rule | Rules], Config) ->
           {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, []}
       end;
 
-    true -> eval_rules(User, ConfigSpecs, Rules, Config)
+    true -> eval_rules(User, Rules, Config)
   end.
 
 
-eval_rule(User, ConfigSpecs, Rule) ->
+eval_rule(User, Rule) ->
   Conditions = maps:get(<<"conditions">>, Rule, []),
   Results =
     lists:map(
-      fun (Condition) -> eval_condition(User, ConfigSpecs, Condition) end,
+      fun (Condition) -> eval_condition(User, Condition) end,
       Conditions
     ),
   Pass = lists:filter(fun ({Res, _Exposures}) -> Res == false end, Results),
@@ -84,9 +70,9 @@ eval_rule(User, ConfigSpecs, Rule) ->
   end.
 
 
-eval_condition(User, ConfigSpecs, Condition) ->
+eval_condition(User, Condition) ->
   {ConditionResult, EvaluationComplete, Value, _Exposures} =
-    get_evaluation_value(User, ConfigSpecs, Condition),
+    get_evaluation_value(User, Condition),
   if
     EvaluationComplete == false ->
       {get_evaluation_comparison(Condition, Value), []};
@@ -95,24 +81,24 @@ eval_condition(User, ConfigSpecs, Condition) ->
   end.
 
 
-eval_conditions(_User, _ConfigSpecs, []) -> {false, ""};
+eval_conditions(_User, []) -> {false, ""};
 
-eval_conditions(User, ConfigSpecs, [Condition | RemainingConditions]) ->
+eval_conditions(User, [Condition | RemainingConditions]) ->
   AllExposures = [],
   {ConditionResult, EvaluationComplete, Value, _Exposures} =
-    get_evaluation_value(User, ConfigSpecs, Condition),
+    get_evaluation_value(User, Condition),
   if
     EvaluationComplete == false ->
       ComparisonResult = get_evaluation_comparison(Condition, Value),
       if
         ComparisonResult -> {ComparisonResult, AllExposures};
-        true -> eval_conditions(User, ConfigSpecs, RemainingConditions)
+        true -> eval_conditions(User, RemainingConditions)
       end;
 
     true ->
       if
         ConditionResult -> {ConditionResult, AllExposures};
-        true -> eval_conditions(User, ConfigSpecs, RemainingConditions)
+        true -> eval_conditions(User, RemainingConditions)
       end
   end.
 
@@ -446,7 +432,7 @@ trim(Val) ->
   end.
 
 
-get_evaluation_value(User, ConfigSpecs, Condition) ->
+get_evaluation_value(User, Condition) ->
   Type = maps:get(<<"type">>, Condition, ""),
   Target = maps:get(<<"targetValue">>, Condition, ""),
   Field = maps:get(<<"field">>, Condition, ""),
@@ -456,13 +442,13 @@ get_evaluation_value(User, ConfigSpecs, Condition) ->
 
     <<"pass_gate">> ->
       {_, Result, _JsonResult, _NestedRuleID, _NestedExposures} =
-        eval_gate(User, ConfigSpecs, Target),
+        find_and_eval(User, Target, feature_gate),
       % TODO secondary exposures
       {Result, true, unknown, []};
 
     <<"fail_gate">> ->
       {_, Result, _JsonResult, _NestedRuleID, _NestedExposures} =
-        eval_gate(User, ConfigSpecs, Target),
+        find_and_eval(User, Target, feature_gate),
       % TODO secondary exposures
       {not Result, true, unknown, []};
 

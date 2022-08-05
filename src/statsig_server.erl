@@ -17,41 +17,44 @@ start_link(ApiKey) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [ApiKey], []).
 
 init([ApiKey]) ->
+  ets:new(
+    statsig_store,
+    [set, named_table, {keypos, 1}, {heir, none}, {read_concurrency, true}]
+  ),
   case network:request(ApiKey, "download_config_specs", #{}) of
     false -> {stop, "Initialize Failed"};
 
     Body ->
-      {
-        ok,
-        [
-          {config_specs, jiffy:decode(Body, [return_maps])},
-          {log_events, []},
-          {api_key, ApiKey}
-        ]
-      }
+      Specs = jiffy:decode(Body, [return_maps]),
+      Gates = maps:get(<<"feature_gates">>, Specs, []),
+      save_specs(Gates, feature_gate),
+      Configs = maps:get(<<"dynamic_configs">>, Specs, []),
+      save_specs(Configs, dynamic_config),
+      {ok, [{log_events, []}, {api_key, ApiKey}]}
   end.
+
+
+save_specs([], _Type) -> ok;
+
+save_specs([H | T], Type) ->
+  Name = maps:get(<<"name">>, H, undefined),
+  case Name of
+    undefined -> ok;
+    _ -> ets:insert(statsig_store, {Name, Type, H})
+  end,
+  save_specs(T, Type).
 
 
 handle_cast(
   {log, User, EventName, Value, Metadata},
-  [{config_specs, _ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
+  [{log_events, Events}, {api_key, ApiKey}]
 ) ->
   Event = logging:get_event(User, EventName, Value, Metadata),
-  {
-    noreply,
-    [
-      {config_specs, _ConfigSpecs},
-      {log_events, [Event | Events]},
-      {api_key, ApiKey}
-    ]
-  };
+  {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}]};
 
-handle_cast(
-  flush,
-  [{config_specs, _ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
-) ->
+handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
   flush_events(ApiKey, Events),
-  {noreply, [{config_specs, _ConfigSpecs}, {log_events, []}, {api_key, ApiKey}]}.
+  {noreply, [{log_events, []}, {api_key, ApiKey}]}.
 
 
 handle_info(_In, State) -> {noreply, State}.
@@ -63,13 +66,9 @@ handle_call({Type, User, Name}, _From, State) ->
   end.
 
 
-handle_gate(
-  User,
-  Gate,
-  [{config_specs, ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
-) ->
+handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}]) ->
   {_Rule, GateValue, _JsonValue, RuleID, SecondaryExposures} =
-    evaluator:eval_gate(User, ConfigSpecs, Gate),
+    evaluator:find_and_eval(User, Gate, feature_gate),
   GateExposure =
     logging:get_exposure(
       User,
@@ -82,20 +81,12 @@ handle_gate(
       SecondaryExposures
     ),
   NextEvents = handle_events([GateExposure | Events], ApiKey),
-  {
-    reply,
-    GateValue,
-    [{config_specs, ConfigSpecs}, {log_events, NextEvents}, {api_key, ApiKey}]
-  }.
+  {reply, GateValue, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
-handle_config(
-  User,
-  Config,
-  [{config_specs, ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
-) ->
+handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
   {_Rule, _GateValue, JsonValue, RuleID, SecondaryExposures} =
-    evaluator:eval_config(User, ConfigSpecs, Config),
+    evaluator:find_and_eval(User, Config, dynamic_config),
   ConfigExposure =
     logging:get_exposure(
       User,
@@ -104,11 +95,7 @@ handle_config(
       SecondaryExposures
     ),
   NextEvents = handle_events([ConfigExposure | Events], ApiKey),
-  {
-    reply,
-    JsonValue,
-    [{config_specs, ConfigSpecs}, {log_events, NextEvents}, {api_key, ApiKey}]
-  }.
+  {reply, JsonValue, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
 flush_events(ApiKey, Events) ->
@@ -134,10 +121,7 @@ handle_events(Events, ApiKey) ->
   end.
 
 
-terminate(
-  _Reason,
-  [{config_specs, _config_specs}, {log_events, Events}, {api_key, ApiKey}]
-) ->
+terminate(_Reason, [{log_events, Events}, {api_key, ApiKey}]) ->
   if
     length(Events) > 0 -> flush_events(ApiKey, Events);
     true -> false
