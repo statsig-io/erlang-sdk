@@ -12,19 +12,20 @@ request(ApiKey, Endpoint, Input) ->
       {"STATSIG-SDK-VERSION", utils:get_sdk_version()},
       {"Content-Type", <<"application/json">>}
     ],
-  RequestBody = jiffy:encode(maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)),
-
+  RequestBody =
+    jiffy:encode(
+      maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)
+    ),
   case hackney:post(URL ++ Endpoint, Headers, RequestBody, []) of
     {ok, StatusCode, _RespHeaders, ClientRef} ->
       if
-        StatusCode < 300 -> 
+        StatusCode < 300 ->
           {ok, Body} = hackney:body(ClientRef),
           Body;
-        true -> 
-          false
+
+        true -> false
       end;
-    {error, _} -> 
-      false;
-    true -> 
-      false
+
+    {error, _} -> false;
+    true -> false
   end.

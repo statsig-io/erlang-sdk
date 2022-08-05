@@ -2,14 +2,16 @@
 
 -export([eval_gate/3, eval_config/3]).
 
--spec eval_gate(map(), map(), list()) -> {map(), boolean(), map(), list(), list()}.
+-spec eval_gate(map(), map(), list()) ->
+  {map(), boolean(), map(), list(), list()}.
 eval_gate(User, ConfigSpecs, Gate) ->
   Gates = maps:get(<<"feature_gates">>, ConfigSpecs, []),
   ConfigSpec = find_definition(Gates, Gate),
   eval(User, ConfigSpecs, ConfigSpec).
 
 
--spec eval_config(map(), map(), list()) -> {map(), boolean(), map(), list(), list()}.
+-spec eval_config(map(), map(), list()) ->
+  {map(), boolean(), map(), list(), list()}.
 eval_config(User, ConfigSpecs, Config) ->
   Configs = maps:get(<<"dynamic_configs">>, ConfigSpecs, []),
   ConfigSpec = find_definition(Configs, Config),
@@ -35,23 +37,33 @@ eval(User, ConfigSpecs, ConfigDefinition) ->
       Rules = maps:get(<<"rules">>, ConfigDefinition, []),
       eval_rules(User, ConfigSpecs, Rules, ConfigDefinition);
 
-    true -> {#{}, false, maps:get(<<"defaultValue">>, ConfigDefinition, #{}), <<"disabled">>, []}
+    true ->
+      {
+        #{},
+        false,
+        maps:get(<<"defaultValue">>, ConfigDefinition, #{}),
+        <<"disabled">>,
+        []
+      }
   end.
 
 
-eval_rules(_User, _ConfigSpecs, [], Config) -> {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
+eval_rules(_User, _ConfigSpecs, [], Config) ->
+  {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
 
 eval_rules(User, ConfigSpecs, [Rule | Rules], Config) ->
   {RuleResult, RuleJson, RuleID, _SecondaryExposures} =
     eval_rule(User, ConfigSpecs, Rule),
   if
-    RuleResult -> 
+    RuleResult ->
       Pass = eval_pass_percent(User, Rule, Config),
-      if Pass ->
-        {Rule, Pass, RuleJson, RuleID, []};
-      true ->
-        {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, []}
+      if
+        Pass -> {Rule, Pass, RuleJson, RuleID, []};
+
+        true ->
+          {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, []}
       end;
+
     true -> eval_rules(User, ConfigSpecs, Rules, Config)
   end.
 
@@ -65,7 +77,9 @@ eval_rule(User, ConfigSpecs, Rule) ->
     ),
   Pass = lists:filter(fun ({Res, _Exposures}) -> Res == false end, Results),
   if
-    length(Pass) > 0 -> {false, maps:get(<<"returnValue">>, Rule, []), <<"fail">>, []};
+    length(Pass) > 0 ->
+      {false, maps:get(<<"returnValue">>, Rule, []), <<"fail">>, []};
+
     true -> {true, maps:get(<<"returnValue">>, Rule, []), <<"fail">>, []}
   end.
 
@@ -111,22 +125,26 @@ get_evaluation_comparison(Condition, Value) ->
 
 compare(Value, Operator, Target) ->
   case Operator of
-    <<"gt">> -> 
+    <<"gt">> ->
       if
         Value == unknown -> false;
         true -> Value > Target
       end;
+
     <<"gte">> ->
       if
         Value == unknown -> false;
         true -> Value >= Target
       end;
+
     <<"lt">> ->
       if
         Value == unknown -> false;
         true -> Value < Target
       end;
-    <<"lte">> ->if
+
+    <<"lte">> ->
+      if
         Value == unknown -> false;
         true -> Value =< Target
       end;
@@ -299,15 +317,19 @@ compare(Value, Operator, Target) ->
 
     <<"eq">> -> (Value =:= Target);
     <<"neq">> -> not (Value =:= Target);
+    <<"before">> -> get_number(Value) < get_number(Target);
+    <<"after">> -> get_number(Value) > get_number(Target);
 
-    <<"before">> ->
-      get_number(Value) < get_number(Target);
-    <<"after">> -> 
-      get_number(Value) > get_number(Target);
     <<"on">> ->
-      {{ValueYear, ValueMonth, ValueDay}, _ValueTime} = calendar:system_time_to_universal_time(round(get_number(Value)), 1000),
-      {{TargetYear, TargetMonth, TargetDay}, _TargetTime} = calendar:system_time_to_universal_time(round(get_number(Target)), 1000),
-      (ValueYear == TargetYear) and (ValueMonth == TargetMonth) and (ValueDay == TargetDay);
+      {{ValueYear, ValueMonth, ValueDay}, _ValueTime} =
+        calendar:system_time_to_universal_time(round(get_number(Value)), 1000),
+      {{TargetYear, TargetMonth, TargetDay}, _TargetTime} =
+        calendar:system_time_to_universal_time(round(get_number(Target)), 1000),
+      (ValueYear == TargetYear)
+      and
+      (ValueMonth == TargetMonth)
+      and
+      (ValueDay == TargetDay);
 
     _ ->
       erlang:display("UNSUPPORTED OPERATOR"),
@@ -451,8 +473,7 @@ get_evaluation_value(User, ConfigSpecs, Condition) ->
     <<"environment_field">> ->
       {false, false, get_from_environment(User, Field), []};
 
-    <<"current_time">> ->
-      {false, false, utils:get_timestamp(), []};
+    <<"current_time">> -> {false, false, utils:get_timestamp(), []};
 
     <<"user_bucket">> ->
       AdditionValues = maps:get(<<"additionalValues">>, Condition, #{}),

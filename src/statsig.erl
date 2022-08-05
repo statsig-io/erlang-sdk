@@ -15,13 +15,11 @@
   ]
 ).
 
-start(_Type, _Args) ->
-  statsig_sup:start_link().
+start(_Type, _Args) -> statsig_sup:start_link().
 
 -spec check_gate(map(), binary()) -> boolean().
-check_gate(User, Gate) -> 
-  gen_server:call(statsig_server, {gate, User, Gate}).
-  
+check_gate(User, Gate) -> gen_server:call(statsig_server, {gate, User, Gate}).
+
 -spec get_config(map(), binary()) -> map().
 get_config(User, Config) ->
   gen_server:call(statsig_server, {config, User, Config}).
@@ -39,8 +37,6 @@ log_event(User, EventName, Value, Metadata) ->
   gen_server:cast(statsig_server, {log, User, EventName, Value, Metadata}).
 
 -spec flush() -> none().
-flush() -> 
-  gen_server:cast(statsig_server, flush).
-  
-stop(_State) ->
-  ok.
+flush() -> gen_server:cast(statsig_server, flush).
+
+stop(_State) -> ok.

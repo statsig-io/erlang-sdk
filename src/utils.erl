@@ -5,13 +5,14 @@
 ).
 
 -spec get_timestamp() -> list().
-get_timestamp() ->
-  integer_to_list(os:system_time(millisecond)).
-
+get_timestamp() -> integer_to_list(os:system_time(millisecond)).
 
 -spec get_statsig_metadata() -> map().
 get_statsig_metadata() ->
-  #{<<"sdkType">> => list_to_binary(get_sdk_type()), <<"sdkVersion">> => list_to_binary(get_sdk_version())}.
+  #{
+    <<"sdkType">> => list_to_binary(get_sdk_type()),
+    <<"sdkVersion">> => list_to_binary(get_sdk_version())
+  }.
 
 -spec get_sdk_version() -> list().
 get_sdk_version() -> "0.1.0".
