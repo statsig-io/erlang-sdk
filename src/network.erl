@@ -6,22 +6,25 @@ request(ApiKey, Endpoint, Input) ->
   URL = application:get_env(statsig, statsig_api, "https://statsigapi.net/v1/"),
   Headers =
     [
-      {<<"STATSIG-API-KEY">>, ApiKey},
-      % {"STATSIG-CLIENT-TIME", get_timestamp()},
-      % {"STATSIG-SDK-TYPE", get_sdk_type()},
-      % {"STATSIG-SDK-VERSION", get_sdk_version()},
-      {<<"Content-Type">>, <<"application/json">>}
+      {"STATSIG-API-KEY", ApiKey},
+      {"STATSIG-CLIENT-TIME", utils:get_timestamp()},
+      {"STATSIG-SDK-TYPE", utils:get_sdk_type()},
+      {"STATSIG-SDK-VERSION", utils:get_sdk_version()},
+      {"Content-Type", <<"application/json">>}
     ],
-  maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input),
-  RequestBody = jiffy:encode(Input),
+  RequestBody = jiffy:encode(maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)),
+
   case hackney:post(URL ++ Endpoint, Headers, RequestBody, []) of
     {ok, StatusCode, _RespHeaders, ClientRef} ->
       if
         StatusCode < 300 -> 
           {ok, Body} = hackney:body(ClientRef),
           Body;
-        true -> false
+        true -> 
+          false
       end;
-    {error, _} -> false;
-    true -> false
+    {error, _} -> 
+      false;
+    true -> 
+      false
   end.

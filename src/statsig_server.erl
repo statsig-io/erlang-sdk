@@ -49,7 +49,7 @@ handle_cast(
   flush,
   [{config_specs, _ConfigSpecs}, {log_events, Events}, {api_key, ApiKey}]
 ) ->
-  flush_events(api_key, Events),
+  flush_events(ApiKey, Events),
   {noreply, [{config_specs, _ConfigSpecs}, {log_events, []}, {api_key, ApiKey}]}.
 
 handle_info(_In, State) -> {noreply, State}.

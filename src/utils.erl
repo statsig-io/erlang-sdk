@@ -11,7 +11,7 @@ get_timestamp() ->
 
 -spec get_statsig_metadata() -> map().
 get_statsig_metadata() ->
-  #{<<"sdkType">> => get_sdk_type(), <<"sdkVersion">> => get_sdk_version()}.
+  #{<<"sdkType">> => list_to_binary(get_sdk_type()), <<"sdkVersion">> => list_to_binary(get_sdk_version())}.
 
 -spec get_sdk_version() -> list().
 get_sdk_version() -> "0.1.0".

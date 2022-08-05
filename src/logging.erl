@@ -11,9 +11,9 @@ get_event(User, EventName, Value, Metadata) ->
       <<"user">> => User,
       <<"time">> => list_to_binary(utils:get_timestamp())
     },
-  if
-    Value == undefined -> Event;
-    true -> maps:put(<<"value">>, Value, Event)
+  case Value == undefined of
+    true -> Event;
+    _HasValue -> maps:put(<<"value">>, Value, Event)
   end.
 
 
