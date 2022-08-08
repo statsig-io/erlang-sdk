@@ -530,7 +530,7 @@ get_unit_id(User, IdType) ->
     true ->
       UserID = maps:get(IdType, User, unknown),
       if
-        UserID == null -> <<"">>;
+        UserID == unknown -> <<"">>;
         true -> UserID
       end
   end.
@@ -543,9 +543,9 @@ compute_user_hash(Value) ->
 
 
 eval_pass_percent(User, Rule, ConfigSpec) ->
-  ConfigSalt = binary_to_list(maps:get(<<"salt">>, ConfigSpec, "")),
+  ConfigSalt = binary_to_list(maps:get(<<"salt">>, ConfigSpec, <<"">>)),
   RuleSalt =
-    binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, ""))),
+    binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, <<"">>))),
   IdType = maps:get(<<"idType">>, Rule, ""),
   UnitID = get_unit_id(User, IdType),
   Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
