@@ -2,8 +2,16 @@
 
 -export([request/3]).
 
+normalize_api() ->
+  Url = application:get_env(statsig, statsig_api, "https://statsigapi.net/v1/"),
+  TrailingSlash = string:find(Url, "/", trailing),
+  case TrailingSlash of
+    "/" -> Url;
+    _Other -> Url ++ "/"
+  end.
+
 request(ApiKey, Endpoint, Input) ->
-  URL = application:get_env(statsig, statsig_api, "https://statsigapi.net/v1/"),
+  Api = normalize_api(),
   Headers =
     [
       {"STATSIG-API-KEY", ApiKey},
@@ -16,7 +24,7 @@ request(ApiKey, Endpoint, Input) ->
     jiffy:encode(
       maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)
     ),
-  case hackney:post(URL ++ Endpoint, Headers, RequestBody, []) of
+  case hackney:post(Api ++ Endpoint, Headers, RequestBody, []) of
     {ok, StatusCode, _RespHeaders, ClientRef} ->
       if
         StatusCode < 300 ->
