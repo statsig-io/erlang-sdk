@@ -8,7 +8,7 @@
     stdlib,
     hackney
    ]},
-  {env,[{statsig_api, "https://statsigapi.net/v1/"}]},
+  {env,[]},
   {modules, [gen_server]},
 
   {licenses, ["ISC"]},

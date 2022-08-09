@@ -5,6 +5,7 @@
 gate_test() ->
   ApiKey = os:getenv("test_api_key"),
   application:set_env(statsig, statsig_api_key, ApiKey),
+  application:set_env(statsig, statsig_api, "https://api.statsig.com/v1"),
   application:start(statsig),
   {ok, _Apps} = application:ensure_all_started(statsig),
   
