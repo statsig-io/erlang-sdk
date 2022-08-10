@@ -25,14 +25,18 @@ init([ApiKey]) ->
     false -> {stop, "Initialize Failed"};
 
     Body ->
-      Specs = jiffy:decode(Body, [return_maps]),
-      Gates = maps:get(<<"feature_gates">>, Specs, []),
-      save_specs(Gates, feature_gate),
-      Configs = maps:get(<<"dynamic_configs">>, Specs, []),
-      save_specs(Configs, dynamic_config),
+      parse_and_save_specs(Body),
+      Delay = application:get_env(statsig, statsig_polling_interval, 60000),
+      erlang:send_after(Delay, self(), download_specs),
       {ok, [{log_events, []}, {api_key, ApiKey}]}
   end.
 
+parse_and_save_specs(Body) ->
+  Specs = jiffy:decode(Body, [return_maps]),
+  Gates = maps:get(<<"feature_gates">>, Specs, []),
+  save_specs(Gates, feature_gate),
+  Configs = maps:get(<<"dynamic_configs">>, Specs, []),
+  save_specs(Configs, dynamic_config).
 
 save_specs([], _Type) -> ok;
 
@@ -56,7 +60,17 @@ handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
   flush_events(ApiKey, Events),
   {noreply, [{log_events, []}, {api_key, ApiKey}]}.
 
+handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
+  case network:request(ApiKey, "download_config_specs", #{}) of
+    false -> unknown;
 
+    Body ->
+      parse_and_save_specs(Body)
+  end,
+  Delay = application:get_env(statsig, statsig_polling_interval, 60000),
+  erlang:send_after(Delay, self(), download_specs),
+  
+  {noreply, [{log_events, Events}, {api_key, ApiKey}]};
 handle_info(_In, State) -> {noreply, State}.
 
 handle_call({Type, User, Name}, _From, State) ->

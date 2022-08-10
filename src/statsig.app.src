@@ -9,9 +9,7 @@
     hackney
    ]},
   {env,[]},
-  {modules, [gen_server]},
   {modules, [gen_server, ets]},
-
   {licenses, ["ISC"]},
   {links, []}
  ]}.
