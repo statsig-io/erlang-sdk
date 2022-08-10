@@ -4,21 +4,24 @@
 
 gate_test() ->
   ApiKey = os:getenv("test_api_key"),
+  
   application:set_env(statsig, statsig_api_key, ApiKey),
   application:start(statsig),
   {ok, _Apps} = application:ensure_all_started(statsig),
   
   Body = network:request(ApiKey, "rulesets_e2e_test", #{}),
+
+  TestData =  maps:get(<<"data">>, jiffy:decode(Body, [return_maps]), []),
+  lists:map(fun (Data) -> test_input(Data) end, TestData),
+  application:set_env(statsig, statsig_environment_tier, <<"staging">>),
   statsig:log_event(#{<<"userID">> => <<"321">>}, <<"newevent">>, 12, #{<<"test">> => <<"val">>}),
   statsig:log_event(#{<<"userID">> => <<"456">>}, <<"custom_event">>, <<"hello">>, #{<<"123">> => <<"444">>}),
   statsig:log_event(#{<<"userID">> => <<"12345">>}, <<"custom_event">>, #{<<"test">> => <<"val">>}),
-  statsig:flush(),
-  TestData =  maps:get(<<"data">>, jiffy:decode(Body, [return_maps]), []),
-  lists:map(fun (Data) -> test_input(Data) end, TestData),
   statsig:flush().
 
 test_input(Input) ->
   User = maps:get(<<"user">>, Input, #{}),
+
   FeatureGates = maps:get(<<"feature_gates_v2">>, Input, #{}),
   maps:map(fun (K, V) -> test_gate(K, V, User) end, FeatureGates),
   DynamicConfigs = maps:get(<<"dynamic_configs">>, Input, #{}),
