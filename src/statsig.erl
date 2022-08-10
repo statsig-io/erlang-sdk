@@ -18,23 +18,39 @@
 start(_Type, _Args) -> statsig_sup:start_link().
 
 -spec check_gate(map(), binary()) -> boolean().
-check_gate(User, Gate) -> gen_server:call(statsig_server, {gate, User, Gate}).
+check_gate(User, Gate) -> 
+  NormalizedUser = normalize_user(User),
+  gen_server:call(statsig_server, {gate, NormalizedUser, Gate}).
 
 -spec get_config(map(), binary()) -> map().
 get_config(User, Config) ->
-  gen_server:call(statsig_server, {config, User, Config}).
+  NormalizedUser = normalize_user(User),
+  gen_server:call(statsig_server, {config, NormalizedUser, Config}).
 
 -spec get_experiment(map(), binary()) -> map().
 get_experiment(User, Experiment) ->
-  gen_server:call(statsig_server, {config, User, Experiment}).
+  NormalizedUser = normalize_user(User),
+  gen_server:call(statsig_server, {config, NormalizedUser, Experiment}).
 
 -spec log_event(map(), binary(), map()) -> none().
 log_event(User, EventName, Metadata) ->
-  gen_server:cast(statsig_server, {log, User, EventName, undefined, Metadata}).
+  NormalizedUser = normalize_user(User),
+  gen_server:cast(statsig_server, {log, NormalizedUser, EventName, undefined, Metadata}).
 
 -spec log_event(map(), binary(), binary() | number(), map()) -> none().
 log_event(User, EventName, Value, Metadata) ->
-  gen_server:cast(statsig_server, {log, User, EventName, Value, Metadata}).
+  NormalizedUser = normalize_user(User),
+  gen_server:cast(statsig_server, {log, NormalizedUser, EventName, Value, Metadata}).
+
+normalize_user(User) ->
+  env = application:get_env(statsig, statsig_environment_tier, undefined),
+  case env of
+    undefined ->
+      User;
+    Other ->
+      StatsigEnvironment = #{<<"tier">> => env},
+      User = maps:put("statsigEnvironment", StatsigEnvironment, User)
+  end.
 
 -spec flush() -> none().
 flush() -> gen_server:cast(statsig_server, flush).
