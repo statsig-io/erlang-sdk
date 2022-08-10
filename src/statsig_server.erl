@@ -32,11 +32,15 @@ init([ApiKey]) ->
   end.
 
 parse_and_save_specs(Body) ->
-  Specs = jiffy:decode(Body, [return_maps]),
-  Gates = maps:get(<<"feature_gates">>, Specs, []),
-  save_specs(Gates, feature_gate),
-  Configs = maps:get(<<"dynamic_configs">>, Specs, []),
-  save_specs(Configs, dynamic_config).
+  try
+    Specs = jiffy:decode(Body, [return_maps]),
+    Gates = maps:get(<<"feature_gates">>, Specs, []),
+    save_specs(Gates, feature_gate),
+    Configs = maps:get(<<"dynamic_configs">>, Specs, []),
+    save_specs(Configs, dynamic_config)
+  catch
+      _ -> ok % no op - will be retried after the polling interval
+  end.
 
 save_specs([], _Type) -> ok;
 
