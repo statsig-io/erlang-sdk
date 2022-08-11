@@ -10,6 +10,7 @@ normalize_api() ->
     _Other -> Url ++ "/"
   end.
 
+
 request(ApiKey, Endpoint, Input) ->
   Api = normalize_api(),
   Headers =

@@ -31,6 +31,7 @@ init([ApiKey]) ->
       {ok, [{log_events, []}, {api_key, ApiKey}]}
   end.
 
+
 parse_and_save_specs(Body) ->
   try
     Specs = jiffy:decode(Body, [return_maps]),
@@ -39,8 +40,11 @@ parse_and_save_specs(Body) ->
     Configs = maps:get(<<"dynamic_configs">>, Specs, []),
     save_specs(Configs, dynamic_config)
   catch
-      _ -> ok % no op - will be retried after the polling interval
+    error : _Error ->
+      % no op - will be retried after the polling interval
+      ok
   end.
+
 
 save_specs([], _Type) -> ok;
 
@@ -64,18 +68,18 @@ handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
   flush_events(ApiKey, Events),
   {noreply, [{log_events, []}, {api_key, ApiKey}]}.
 
+
 handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
   case network:request(ApiKey, "download_config_specs", #{}) of
     false -> unknown;
-
-    Body ->
-      parse_and_save_specs(Body)
+    Body -> parse_and_save_specs(Body)
   end,
   Delay = application:get_env(statsig, statsig_polling_interval, 60000),
   erlang:send_after(Delay, self(), download_specs),
-  
   {noreply, [{log_events, Events}, {api_key, ApiKey}]};
+
 handle_info(_In, State) -> {noreply, State}.
+
 
 handle_call({Type, User, Name}, _From, State) ->
   case Type of
