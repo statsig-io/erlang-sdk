@@ -4,11 +4,12 @@
 -export([get_exposure/4]).
 
 get_event(User, EventName, Value, Metadata) ->
+  PublicUser = maps:remove(<<"privateAttributes">>, User),
   Event =
     #{
       <<"eventName">> => EventName,
       <<"metadata">> => Metadata,
-      <<"user">> => User,
+      <<"user">> => PublicUser,
       <<"time">> => list_to_binary(utils:get_timestamp())
     },
   case Value == undefined of
