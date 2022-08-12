@@ -97,7 +97,7 @@ handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}]) ->
       <<"statsig::gate_exposure">>,
       #{
         <<"gate">> => Gate,
-        <<"gateValue">> => GateValue,
+        <<"gateValue">> => utils:get_bool_as_string(GateValue),
         <<"ruleID">> => RuleID
       },
       SecondaryExposures
