@@ -117,7 +117,7 @@ handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
       SecondaryExposures
     ),
   NextEvents = handle_events([ConfigExposure | Events], ApiKey),
-  {reply, JsonValue, [{log_events, NextEvents}, {api_key, ApiKey}]}.
+  {reply, #{value => JsonValue, rule_id => RuleID}, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
 flush_events(ApiKey, Events) ->
@@ -127,12 +127,12 @@ flush_events(ApiKey, Events) ->
 
 handle_events(Events, ApiKey) ->
   if
-    length(Events) > 999 ->
+    length(Events) > 9999 ->
       % We've been failing to post events for too long
       % lets keep the most recent 500 events
-      lists:sublist(Events, 499);
+      lists:sublist(Events, 4999);
 
-    length(Events) > 499 ->
+    length(Events) > 4999 ->
       Success = flush_events(ApiKey, Events),
       if
         Success -> [];

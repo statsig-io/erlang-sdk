@@ -10,7 +10,7 @@ get_event(User, EventName, Value, Metadata) ->
       <<"eventName">> => EventName,
       <<"metadata">> => Metadata,
       <<"user">> => PublicUser,
-      <<"time">> => list_to_integer(utils:get_timestamp())
+      <<"time">> => list_to_binary(utils:get_timestamp())
     },
   case Value == undefined of
     true -> Event;

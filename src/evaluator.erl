@@ -22,7 +22,7 @@ eval(User, ConfigDefinition) ->
 
     Enabled ->
       Rules = maps:get(<<"rules">>, ConfigDefinition, []),
-      eval_rules(User, Rules, ConfigDefinition);
+      eval_rules(User, Rules, ConfigDefinition, []);
 
     true ->
       {
@@ -35,22 +35,23 @@ eval(User, ConfigDefinition) ->
   end.
 
 
-eval_rules(_User, [], Config) ->
-  {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
+eval_rules(_User, [], Config, Exposures) ->
+  {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), <<"default">>, Exposures};
 
-eval_rules(User, [Rule | Rules], Config) ->
-  {RuleResult, RuleJson, RuleID, _SecondaryExposures} = eval_rule(User, Rule),
+eval_rules(User, [Rule | Rules], Config, Exposures) ->
+  {RuleResult, RuleJson, RuleID, SecondaryExposures} = eval_rule(User, Rule),
+  AllExposures = lists:append(SecondaryExposures, Exposures),
   if
     RuleResult ->
       Pass = eval_pass_percent(User, Rule, Config),
       if
-        Pass -> {Rule, Pass, RuleJson, RuleID, []};
+        Pass -> {Rule, Pass, RuleJson, RuleID, AllExposures};
 
         true ->
-          {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, []}
+          {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, AllExposures}
       end;
 
-    true -> eval_rules(User, Rules, Config)
+    true -> eval_rules(User, Rules, Config, AllExposures)
   end.
 
 
@@ -61,45 +62,24 @@ eval_rule(User, Rule) ->
       fun (Condition) -> eval_condition(User, Condition) end,
       Conditions
     ),
+  Exposures = lists:foldl(fun({_Result, Exp}, Acc) -> lists:append(Exp, Acc) end, [], Results),
   Pass = lists:filter(fun ({Res, _Exposures}) -> Res == false end, Results),
   if
     length(Pass) > 0 ->
-      {false, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), []};
+      {false, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), Exposures};
 
-    true -> {true, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), []}
+    true -> {true, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), Exposures}
   end.
 
 
 eval_condition(User, Condition) ->
-  {ConditionResult, EvaluationComplete, Value, _Exposures} =
+  {ConditionResult, EvaluationComplete, Value, Exposures} =
     get_evaluation_value(User, Condition),
   if
     EvaluationComplete == false ->
-      {get_evaluation_comparison(Condition, Value), []};
+      {get_evaluation_comparison(Condition, Value), Exposures};
 
-    true -> {ConditionResult, []}
-  end.
-
-
-eval_conditions(_User, []) -> {false, ""};
-
-eval_conditions(User, [Condition | RemainingConditions]) ->
-  AllExposures = [],
-  {ConditionResult, EvaluationComplete, Value, _Exposures} =
-    get_evaluation_value(User, Condition),
-  if
-    EvaluationComplete == false ->
-      ComparisonResult = get_evaluation_comparison(Condition, Value),
-      if
-        ComparisonResult -> {ComparisonResult, AllExposures};
-        true -> eval_conditions(User, RemainingConditions)
-      end;
-
-    true ->
-      if
-        ConditionResult -> {ConditionResult, AllExposures};
-        true -> eval_conditions(User, RemainingConditions)
-      end
+    true -> {ConditionResult, Exposures}
   end.
 
 
@@ -445,7 +425,7 @@ get_evaluation_value(User, Condition) ->
         find_and_eval(User, Target, feature_gate),
       Secondary = lists:append(NestedExposures, [#{
           <<"gate">> => Target,
-          <<"gateValue">> => get_bool_as_string(Result),
+          <<"gateValue">> => utils:get_bool_as_string(Result),
           <<"ruleID">> => NestedRuleID
       }]),
       {Result, true, null, Secondary};
@@ -455,7 +435,7 @@ get_evaluation_value(User, Condition) ->
         find_and_eval(User, Target, feature_gate),
       Secondary = lists:append(NestedExposures, [#{
           <<"gate">> => Target,
-          <<"gateValue">> => get_bool_as_string(Result),
+          <<"gateValue">> => utils:get_bool_as_string(Result),
           <<"ruleID">> => NestedRuleID
       }]),
       {not Result, true, null, Secondary};
@@ -566,10 +546,4 @@ eval_pass_percent(User, Rule, ConfigSpec) ->
       Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
       
       (Hash rem 10000) < (PassPercent * 100)
-  end.
-
-get_bool_as_string(Bool) ->
-  case Bool of
-    true -> <<"true">>;
-    false -> <<"false">>
   end.
