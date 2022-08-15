@@ -18,11 +18,11 @@ find_and_eval(User, Name, Type) ->
 eval(User, ConfigDefinition) ->
   Enabled = maps:get(<<"enabled">>, ConfigDefinition, false),
   if
-    map_size(ConfigDefinition) == 0 -> {#{}, false, #{}, "", []};
+    map_size(ConfigDefinition) == 0 -> {#{}, false, #{}, <<"">>, []};
 
     Enabled ->
       Rules = maps:get(<<"rules">>, ConfigDefinition, []),
-      eval_rules(User, Rules, ConfigDefinition);
+      eval_rules(User, Rules, ConfigDefinition, []);
 
     true ->
       {
@@ -35,22 +35,23 @@ eval(User, ConfigDefinition) ->
   end.
 
 
-eval_rules(_User, [], Config) ->
-  {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), default, []};
+eval_rules(_User, [], Config, Exposures) ->
+  {#{}, false, maps:get(<<"defaultValue">>, Config, #{}), <<"default">>, Exposures};
 
-eval_rules(User, [Rule | Rules], Config) ->
-  {RuleResult, RuleJson, RuleID, _SecondaryExposures} = eval_rule(User, Rule),
+eval_rules(User, [Rule | Rules], Config, Exposures) ->
+  {RuleResult, RuleJson, RuleID, SecondaryExposures} = eval_rule(User, Rule),
+  AllExposures = lists:append(SecondaryExposures, Exposures),
   if
     RuleResult ->
       Pass = eval_pass_percent(User, Rule, Config),
       if
-        Pass -> {Rule, Pass, RuleJson, RuleID, []};
+        Pass -> {Rule, Pass, RuleJson, RuleID, AllExposures};
 
         true ->
-          {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, []}
+          {Rule, Pass, maps:get(<<"defaultValue">>, Config, #{}), RuleID, AllExposures}
       end;
 
-    true -> eval_rules(User, Rules, Config)
+    true -> eval_rules(User, Rules, Config, AllExposures)
   end.
 
 
@@ -61,45 +62,24 @@ eval_rule(User, Rule) ->
       fun (Condition) -> eval_condition(User, Condition) end,
       Conditions
     ),
+  Exposures = lists:foldl(fun({_Result, Exp}, Acc) -> lists:append(Exp, Acc) end, [], Results),
   Pass = lists:filter(fun ({Res, _Exposures}) -> Res == false end, Results),
   if
     length(Pass) > 0 ->
-      {false, maps:get(<<"returnValue">>, Rule, []), <<"fail">>, []};
+      {false, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), Exposures};
 
-    true -> {true, maps:get(<<"returnValue">>, Rule, []), <<"fail">>, []}
+    true -> {true, maps:get(<<"returnValue">>, Rule, []), maps:get(<<"id">>, Rule, <<"">>), Exposures}
   end.
 
 
 eval_condition(User, Condition) ->
-  {ConditionResult, EvaluationComplete, Value, _Exposures} =
+  {ConditionResult, EvaluationComplete, Value, Exposures} =
     get_evaluation_value(User, Condition),
   if
     EvaluationComplete == false ->
-      {get_evaluation_comparison(Condition, Value), []};
+      {get_evaluation_comparison(Condition, Value), Exposures};
 
-    true -> {ConditionResult, []}
-  end.
-
-
-eval_conditions(_User, []) -> {false, ""};
-
-eval_conditions(User, [Condition | RemainingConditions]) ->
-  AllExposures = [],
-  {ConditionResult, EvaluationComplete, Value, _Exposures} =
-    get_evaluation_value(User, Condition),
-  if
-    EvaluationComplete == false ->
-      ComparisonResult = get_evaluation_comparison(Condition, Value),
-      if
-        ComparisonResult -> {ComparisonResult, AllExposures};
-        true -> eval_conditions(User, RemainingConditions)
-      end;
-
-    true ->
-      if
-        ConditionResult -> {ConditionResult, AllExposures};
-        true -> eval_conditions(User, RemainingConditions)
-      end
+    true -> {ConditionResult, Exposures}
   end.
 
 
@@ -113,67 +93,67 @@ compare(Value, Operator, Target) ->
   case Operator of
     <<"gt">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> Value > Target
       end;
 
     <<"gte">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> Value >= Target
       end;
 
     <<"lt">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> Value < Target
       end;
 
     <<"lte">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> Value =< Target
       end;
 
     <<"version_gt">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result > 0 end)
       end;
 
     <<"version_gte">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result >= 0 end)
       end;
 
     <<"version_lt">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result < 0 end)
       end;
 
     <<"version_lte">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result =< 0 end)
       end;
 
     <<"version_eq">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result == 0 end)
       end;
 
     <<"version_neq">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result /= 0 end)
       end;
 
     <<"any">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           list_any(
@@ -185,7 +165,7 @@ compare(Value, Operator, Target) ->
 
     <<"none">> ->
       if
-        Value == unknown -> true;
+        Value == null -> true;
 
         true ->
           (
@@ -200,7 +180,7 @@ compare(Value, Operator, Target) ->
 
     <<"any_case_sensitive">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           list_any(
@@ -212,7 +192,7 @@ compare(Value, Operator, Target) ->
 
     <<"none_case_sensitive">> ->
       if
-        Value == unknown -> true;
+        Value == null -> true;
 
         true ->
           not
@@ -225,7 +205,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_starts_with_any">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           list_any(
@@ -243,7 +223,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_ends_with_any">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           list_any(
@@ -261,14 +241,14 @@ compare(Value, Operator, Target) ->
 
     <<"str_contains_any">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           list_any(
             Value,
             Target,
             generic_compare(
-              false,
+              true,
               fun (A, B) -> string:find(A, B) /= nomatch end
             )
           )
@@ -276,7 +256,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_contains_none">> ->
       if
-        Value == unknown -> true;
+        Value == null -> true;
 
         true ->
           not
@@ -284,7 +264,7 @@ compare(Value, Operator, Target) ->
             Value,
             Target,
             generic_compare(
-              false,
+              true,
               fun (A, B) -> string:find(A, B) /= nomatch end
             )
           )
@@ -292,7 +272,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_matches">> ->
       if
-        Value == unknown -> false;
+        Value == null -> false;
 
         true ->
           case re:run(Value, Target) of
@@ -438,19 +418,27 @@ get_evaluation_value(User, Condition) ->
   Field = maps:get(<<"field">>, Condition, ""),
   IdType = maps:get(<<"idType">>, Condition, "userID"),
   case Type of
-    <<"public">> -> {true, true, unknown, []};
+    <<"public">> -> {true, true, null, []};
 
     <<"pass_gate">> ->
-      {_, Result, _JsonResult, _NestedRuleID, _NestedExposures} =
+      {_, Result, _JsonResult, NestedRuleID, NestedExposures} =
         find_and_eval(User, Target, feature_gate),
-      % TODO secondary exposures
-      {Result, true, unknown, []};
+      Secondary = lists:append(NestedExposures, [#{
+          <<"gate">> => Target,
+          <<"gateValue">> => utils:get_bool_as_string(Result),
+          <<"ruleID">> => NestedRuleID
+      }]),
+      {Result, true, null, Secondary};
 
     <<"fail_gate">> ->
-      {_, Result, _JsonResult, _NestedRuleID, _NestedExposures} =
+      {_, Result, _JsonResult, NestedRuleID, NestedExposures} =
         find_and_eval(User, Target, feature_gate),
-      % TODO secondary exposures
-      {not Result, true, unknown, []};
+      Secondary = lists:append(NestedExposures, [#{
+          <<"gate">> => Target,
+          <<"gateValue">> => utils:get_bool_as_string(Result),
+          <<"ruleID">> => NestedRuleID
+      }]),
+      {not Result, true, null, Secondary};
 
     <<"user_field">> ->
       Val = get_from_user(User, Field),
@@ -473,7 +461,7 @@ get_evaluation_value(User, Condition) ->
     _ ->
       erlang:display("UNSUPPORTED TYPE"),
       erlang:display(Type),
-      {false, true, unknown, []}
+      {false, true, null, []}
   end.
 
 
@@ -485,12 +473,12 @@ get_from_environment(User, Field) ->
 get_from_user(User, Field) ->
   Value = get_or_lower(Field, User),
   if
-    Value == unknown ->
-      Custom = maps:get(<<"custom">>, User, unknown),
+    Value == null ->
+      Custom = maps:get(<<"custom">>, User, null),
       CustomValue = get_or_lower(Field, Custom),
       if
-        CustomValue == unknown ->
-          Private = maps:get(<<"privateAttributes">>, User, unknown),
+        CustomValue == null ->
+          Private = maps:get(<<"privateAttributes">>, User, null),
           get_or_lower(Field, Private);
 
         true -> CustomValue
@@ -502,14 +490,14 @@ get_from_user(User, Field) ->
 
 get_or_lower(Field, Map) ->
   if
-    Map == unknown -> unknown;
+    Map == null -> null;
 
     true ->
-      Value = maps:get(Field, Map, unknown),
+      Value = maps:get(Field, Map, null),
       if
-        Value == unknown ->
+        Value == null ->
           LowerField = string:casefold(Field),
-          maps:get(LowerField, Map, unknown);
+          maps:get(LowerField, Map, null);
 
         true -> Value
       end
@@ -520,17 +508,17 @@ get_unit_id(User, IdType) ->
   LowerId = string:casefold(IdType),
   if
     LowerId /= <<"userid">> ->
-      Custom = get_or_lower(IdType, maps:get(<<"customIDs">>, User, unknown)),
+      Custom = get_or_lower(IdType, maps:get(<<"customIDs">>, User, null)),
       if
-        Custom == unknown -> <<"">>;
+        Custom == null -> <<"">>;
         Custom == [] -> <<"">>;
         true -> Custom
       end;
 
     true ->
-      UserID = maps:get(IdType, User, unknown),
+      UserID = maps:get(IdType, User, null),
       if
-        UserID == unknown -> <<"">>;
+        UserID == null -> <<"">>;
         true -> UserID
       end
   end.
@@ -543,11 +531,19 @@ compute_user_hash(Value) ->
 
 
 eval_pass_percent(User, Rule, ConfigSpec) ->
-  ConfigSalt = binary_to_list(maps:get(<<"salt">>, ConfigSpec, <<"">>)),
-  RuleSalt =
-    binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, <<"">>))),
-  IdType = maps:get(<<"idType">>, Rule, ""),
-  UnitID = get_unit_id(User, IdType),
-  Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
   PassPercent = maps:get(<<"passPercentage">>, Rule, 0),
-  (Hash rem 10000) < (PassPercent * 100).
+  case PassPercent of
+    100 ->
+      true;
+    0 ->
+      false;
+    _ ->
+      ConfigSalt = binary_to_list(maps:get(<<"salt">>, ConfigSpec, <<"">>)),
+      RuleSalt =
+        binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, <<"">>))),
+      IdType = maps:get(<<"idType">>, Rule, ""),
+      UnitID = get_unit_id(User, IdType),
+      Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
+      
+      (Hash rem 10000) < (PassPercent * 100)
+  end.

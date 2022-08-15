@@ -6,7 +6,8 @@
     get_sdk_type/0,
     get_sdk_version/0,
     get_statsig_metadata/0,
-    get_user_with_environment/1
+    get_user_with_environment/1,
+    get_bool_as_string/1
   ]
 ).
 
@@ -41,4 +42,11 @@ set_env(User) ->
     {ok, Tier} ->
       StatsigEnvironment = #{<<"tier">> => Tier},
       maps:put(<<"statsigEnvironment">>, StatsigEnvironment, User)
+  end.
+
+-spec get_bool_as_string(boolean()) -> list().
+get_bool_as_string(Bool) ->
+  case Bool of
+    true -> <<"true">>;
+    false -> <<"false">>
   end.
