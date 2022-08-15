@@ -248,7 +248,7 @@ compare(Value, Operator, Target) ->
             Value,
             Target,
             generic_compare(
-              false,
+              true,
               fun (A, B) -> string:find(A, B) /= nomatch end
             )
           )
@@ -264,7 +264,7 @@ compare(Value, Operator, Target) ->
             Value,
             Target,
             generic_compare(
-              false,
+              true,
               fun (A, B) -> string:find(A, B) /= nomatch end
             )
           )
