@@ -16,10 +16,6 @@ jobs:
         run: |
           git clone https://${{ secrets.KONG_REPO_PAT }}@github.com/statsig-io/kong.git
 
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "16.x"
-
       - uses: gleam-lang/setup-erlang@v1.1.3
         with:
           otp-version: "23.2"
@@ -27,7 +23,7 @@ jobs:
       - name: Compile and Release
         run: |
           cd kong/bridges/erlang-server
-          ./update_sdk_version.sh $GITHUB_HEAD_REF ${{ secrets.KONG_REPO_PAT }}
+          ./update_sdk_version.sh ${{ secrets.KONG_REPO_PAT }} $GITHUB_HEAD_REF
           rebar3 release
 
       - name: Run Tests
