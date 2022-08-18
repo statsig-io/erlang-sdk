@@ -28,7 +28,6 @@ jobs:
         run: |
           cd kong/bridges/erlang-server
           ./update_sdk_version.sh $GITHUB_HEAD_REF ${{ secrets.KONG_REPO_PAT }}
-          cat rebar.config
           rebar3 release
 
       - name: Run Tests
