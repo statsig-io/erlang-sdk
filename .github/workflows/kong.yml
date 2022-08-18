@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-      - name: Get KONG
+      - name: Get kong
         run: |
           git clone https://${{ secrets.REPO_PAT }}@github.com/statsig-io/kong.git
 
