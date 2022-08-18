@@ -27,6 +27,7 @@ jobs:
       - name: Compile and Release
         run: |
           cd kong/bridges/erlang-server
+          cat rebar.config
           ./update_sdk_version.sh $GITHUB_SHA
           rebar3 release
 
