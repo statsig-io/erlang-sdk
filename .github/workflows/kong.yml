@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Get kong
         run: |
-          git clone https://${{ secrets.REPO_PAT }}@github.com/statsig-io/kong.git
+          git clone https://${{ secrets.KONG_REPO_PAT }}@github.com/statsig-io/kong.git
 
       - uses: actions/setup-node@v1
         with:
@@ -37,4 +37,5 @@ jobs:
           npm install
           FORCE_COLOR=true npm run kong -- test erlang
         env:
-          test_api_key: ${{ secrets.SDK_CONSISTENCY_TEST_COMPANY_API_KEY }}
+          test_api_key: ${{ secrets.KONG_SERVER_SDK_KEY }}
+          test_client_key: ${{ secrets.KONG_CLIENT_SDK_KEY }}
