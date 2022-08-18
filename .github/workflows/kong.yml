@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   kong:
@@ -25,7 +27,7 @@ jobs:
       - name: Compile and Release
         run: |
           cd kong/bridges/erlang-server
-          ./update_sdk_version.sh ${{ github.event.pull_request.head.sha }}
+          ./update_sdk_version.sh $GITHUB_HEAD_REF
           cat rebar.config
           rebar3 release
 
