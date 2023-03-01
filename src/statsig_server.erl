@@ -27,7 +27,9 @@ init([ApiKey]) ->
     Body ->
       parse_and_save_specs(Body),
       Delay = application:get_env(statsig, statsig_polling_interval, 60000),
+      FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
       erlang:send_after(Delay, self(), download_specs),
+      erlang:send_after(FlushDelay, self(), handle_events),
       {ok, [{log_events, []}, {api_key, ApiKey}]}
   end.
 
@@ -65,8 +67,8 @@ handle_cast(
   {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}]};
 
 handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
-  flush_events(ApiKey, Events),
-  {noreply, [{log_events, []}, {api_key, ApiKey}]}.
+  Unsent = handle_events(ApiKey, Events),
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}]}.
 
 
 handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
@@ -77,6 +79,10 @@ handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
   Delay = application:get_env(statsig, statsig_polling_interval, 60000),
   erlang:send_after(Delay, self(), download_specs),
   {noreply, [{log_events, Events}, {api_key, ApiKey}]};
+
+handle_info(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
+  Unsent = handle_events(ApiKey, Events),
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}]};
 
 handle_info(_In, State) -> {noreply, State}.
 
@@ -102,7 +108,7 @@ handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}]) ->
       },
       SecondaryExposures
     ),
-  NextEvents = handle_events([GateExposure | Events], ApiKey),
+  NextEvents = [GateExposure | Events],
   {reply, GateValue, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
@@ -116,36 +122,29 @@ handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
       #{<<"config">> => Config, <<"ruleID">> => RuleID},
       SecondaryExposures
     ),
-  NextEvents = handle_events([ConfigExposure | Events], ApiKey),
+  NextEvents = [ConfigExposure | Events],
   {reply, #{value => JsonValue, rule_id => RuleID}, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
-flush_events(ApiKey, Events) ->
-  Input = #{<<"events">> => Events},
-  network:request(ApiKey, "rgstr", Input) /= false.
-
-
 handle_events(Events, ApiKey) ->
-  if
-    length(Events) > 9999 ->
-      % We've been failing to post events for too long
-      % lets keep the most recent 500 events
-      lists:sublist(Events, 4999);
+  BucketsOfEvents = utils:partition(Events, 500),
+  Unsent = lists:foreach(fun(Evts) -> unsent_events(Evts, ApiKey) end, BucketsOfEvents),
+  lists:flatten(Unsent).
 
-    length(Events) > 4999 ->
-      Success = flush_events(ApiKey, Events),
-      if
-        Success -> [];
-        true -> Events
-      end;
-
-    true -> Events
+unsent_events(Events, ApiKey) -> 
+  erlang:display("posting events"),
+  erlang:display(length(Events)),
+  Input = #{<<"events">> => Events},
+  case network:request(ApiKey, "rgstr", Input) of
+    false ->
+      Events;
+    true ->
+      []
   end.
-
 
 terminate(_Reason, [{log_events, Events}, {api_key, ApiKey}]) ->
   if
-    length(Events) > 0 -> flush_events(ApiKey, Events);
+    length(Events) > 0 -> handle_events(Events, ApiKey);
     true -> false
   end,
   ok.
