@@ -10,11 +10,11 @@ request(Method, Url, ReqBody, ReqHeaders) ->
       if
         StatusCode < 300 ->
           {ok, Body} = hackney:body(ClientRef),
-          {ok, [{status_code, StatusCode}, {headers, RespHeaders}, {body, Body }]};
+          {ok, #{status_code =>StatusCode, headers => RespHeaders, body => Body }};
 
-        true -> {error, [{reason, "Failed with status code"}]}
+        true -> {error, #{reason => "Failed with status code"}}
       end;
     {error, Reason} ->
-      {error, [{reason, Reason}]}
+      {error, #{reason => Reason}}
   end.
   

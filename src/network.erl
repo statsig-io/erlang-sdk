@@ -13,6 +13,7 @@ normalize_api() ->
 
 request(ApiKey, Endpoint, Input) ->
   Api = normalize_api(),
+  ClientModule = application:get_env(statsig, http_client, hackney_client),
   RequestHeaders =
     [
       {"STATSIG-API-KEY", ApiKey},
@@ -26,8 +27,8 @@ request(ApiKey, Endpoint, Input) ->
       maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)
     ),
 
-  case hackney_client:request(post, Api ++ Endpoint, RequestBody, RequestHeaders) of
-    {ok, [{status_code, StatusCode}, {headers, _RespHeaders}, {body, Body}]} ->
+  case ClientModule:request(post, Api ++ Endpoint, RequestBody, RequestHeaders) of
+    {ok, #{status_code := StatusCode, body := Body}} ->
       if
         StatusCode < 300 ->
           Body;
