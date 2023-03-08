@@ -12,7 +12,7 @@ request(Method, Url, ReqBody, ReqHeaders) ->
           {ok, Body} = hackney:body(ClientRef),
           {ok, #{status_code =>StatusCode, headers => RespHeaders, body => Body }};
 
-        true -> {error, #{reason => "Failed with status code"}}
+        true -> {error, #{reason => "Failed with status code " ++ StatusCode}}
       end;
     {error, Reason} ->
       {error, #{reason => Reason}}

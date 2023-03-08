@@ -7,7 +7,7 @@
   url: binary(),
   req_body: binary(),
   headers: list({binary, binary})
-) -> {ok, {status_code: integer(), headers: any()}}
-  | {ok, {status_code: integer(), headers: any(), body: binary()}}
-  | {error, {reason: any()}}.
+) -> {ok, #{status_code => integer(), headers => any()}}
+  | {ok, #{status_code => integer(), headers => any(), body => binary()}}
+  | {error, #{reason => any()}}.
 
