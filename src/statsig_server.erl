@@ -67,7 +67,7 @@ handle_cast(
   {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}]};
 
 handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
-  Unsent = handle_events(ApiKey, Events),
+  Unsent = handle_events(Events, ApiKey),
   {noreply, [{log_events, Unsent}, {api_key, ApiKey}]}.
 
 
@@ -81,7 +81,7 @@ handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
   {noreply, [{log_events, Events}, {api_key, ApiKey}]};
 
 handle_info(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
-  Unsent = handle_events(ApiKey, Events),
+  Unsent = handle_events(Events, ApiKey),
   {noreply, [{log_events, Unsent}, {api_key, ApiKey}]};
 
 handle_info(_In, State) -> {noreply, State}.
@@ -127,24 +127,23 @@ handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
 
 
 handle_events(Events, ApiKey) ->
-  BucketsOfEvents = utils:partition(Events, 500),
-  Unsent = lists:foreach(fun(Evts) -> unsent_events(Evts, ApiKey) end, BucketsOfEvents),
+  BatchSize = application:get_env(statsig, statsig_flush_batch_size, 500),
+  BucketsOfEvents = utils:partition(Events, BatchSize),
+  Unsent = unsent_events(BucketsOfEvents, ApiKey),
   lists:flatten(Unsent).
 
-unsent_events(Events, ApiKey) -> 
-  erlang:display("posting events"),
-  erlang:display(length(Events)),
-  Input = #{<<"events">> => Events},
+unsent_events([], _ApiKey) ->
+  [];
+unsent_events([HEvents|TEvents], ApiKey) -> 
+  Input = #{<<"events">> => TEvents},
   case network:request(ApiKey, "rgstr", Input) of
     false ->
-      Events;
+      [TEvents | unsent_events(HEvents, ApiKey)];
     true ->
-      []
+      unsent_events(HEvents, ApiKey)
   end.
+  
 
 terminate(_Reason, [{log_events, Events}, {api_key, ApiKey}]) ->
-  if
-    length(Events) > 0 -> handle_events(Events, ApiKey);
-    true -> false
-  end,
+  handle_events(Events, ApiKey),
   ok.
