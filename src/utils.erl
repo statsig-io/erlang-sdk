@@ -44,7 +44,7 @@ set_env(User) ->
       maps:put(<<"statsigEnvironment">>, StatsigEnvironment, User)
   end.
 
--spec get_bool_as_string(boolean()) -> list().
+-spec get_bool_as_string(boolean()) -> binary().
 get_bool_as_string(Bool) ->
   case Bool of
     true -> <<"true">>;
