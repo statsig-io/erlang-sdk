@@ -35,7 +35,7 @@ get_experiment(User, Experiment) ->
   gen_server:call(statsig_server, {config, NormalizedUser, Experiment}).
 
 
--spec log_event(map(), binary(), map()) -> none().
+-spec log_event(map(), binary(), map()) -> ok.
 log_event(User, EventName, Metadata) ->
   NormalizedUser = utils:get_user_with_environment(User),
   gen_server:cast(
@@ -44,7 +44,7 @@ log_event(User, EventName, Metadata) ->
   ).
 
 
--spec log_event(map(), binary(), binary() | number(), map()) -> none().
+-spec log_event(map(), binary(), binary() | number(), map()) -> ok.
 log_event(User, EventName, Value, Metadata) ->
   NormalizedUser = utils:get_user_with_environment(User),
   gen_server:cast(
@@ -53,7 +53,7 @@ log_event(User, EventName, Value, Metadata) ->
   ).
 
 
--spec flush() -> none().
+-spec flush() -> ok.
 flush() -> gen_server:cast(statsig_server, flush).
 
 stop(_State) -> ok.
