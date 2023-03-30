@@ -7,7 +7,8 @@
     get_sdk_version/0,
     get_statsig_metadata/0,
     get_user_with_environment/1,
-    get_bool_as_string/1
+    get_bool_as_string/1,
+    partition/2
   ]
 ).
 
@@ -50,3 +51,11 @@ get_bool_as_string(Bool) ->
     true -> <<"true">>;
     false -> <<"false">>
   end.
+
+-spec partition(list(), integer()) -> list().
+partition([],_) -> [];
+partition(List,Len) when Len > length(List) ->
+    [List];
+partition(List,Len) ->
+    {Head,Tail} = lists:split(Len,List),
+    [Head | partition(Tail,Len)].

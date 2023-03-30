@@ -13,7 +13,8 @@ normalize_api() ->
 
 request(ApiKey, Endpoint, Input) ->
   Api = normalize_api(),
-  Headers =
+  ClientModule = application:get_env(statsig, http_client, hackney_client),
+  RequestHeaders =
     [
       {"STATSIG-API-KEY", ApiKey},
       {"STATSIG-CLIENT-TIME", utils:get_timestamp()},
@@ -25,13 +26,12 @@ request(ApiKey, Endpoint, Input) ->
     jiffy:encode(
       maps:put(<<"statsigMetadata">>, utils:get_statsig_metadata(), Input)
     ),
-  case hackney:post(Api ++ Endpoint, Headers, RequestBody, []) of
-    {ok, StatusCode, _RespHeaders, ClientRef} ->
+
+  case ClientModule:request(post, Api ++ Endpoint, RequestBody, RequestHeaders) of
+    {ok, #{status_code := StatusCode, body := Body}} ->
       if
         StatusCode < 300 ->
-          {ok, Body} = hackney:body(ClientRef),
           Body;
-
         true -> false
       end;
 
