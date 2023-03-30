@@ -4,7 +4,6 @@
 
 gate_test() ->
   ApiKey = os:getenv("test_api_key"),
-  
   application:set_env(statsig, statsig_api_key, ApiKey),
   application:set_env(statsig, statsig_api, "https://api.statsig.com/v1"),
   application:start(statsig),
@@ -22,7 +21,6 @@ gate_test() ->
 
 test_input(Input) ->
   User = maps:get(<<"user">>, Input, #{}),
-
   FeatureGates = maps:get(<<"feature_gates_v2">>, Input, #{}),
   maps:map(fun (K, V) -> test_gate(K, V, User) end, FeatureGates),
   DynamicConfigs = maps:get(<<"dynamic_configs">>, Input, #{}),
@@ -43,7 +41,7 @@ test_gate(Name, Gate, User) ->
     true ->
       Result = statsig:check_gate(User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
-      ?assert(Result == ServerResult, Name)
+      ?assertEqual(Result, ServerResult)
   end.
 
 test_config(Name, Config, User) ->
@@ -51,8 +49,9 @@ test_config(Name, Config, User) ->
     Name == <<"operating_system_config">> ->
       false;
     true ->
-      Result = statsig:get_config(User, Name),
+      ResultConfig = statsig:get_config(User, Name),
+      ResultValue = maps:get(value, ResultConfig, #{}),
       ServerResult = maps:get(<<"value">>, Config, false),
-      ?assert(Result == ServerResult, Name)
+      ?assertEqual(ResultValue, ServerResult)
   end.
   
