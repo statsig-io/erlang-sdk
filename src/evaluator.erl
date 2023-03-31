@@ -543,7 +543,17 @@ eval_pass_percent(User, Rule, ConfigSpec) ->
         binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, <<"">>))),
       IdType = maps:get(<<"idType">>, Rule, ""),
       UnitID = get_unit_id(User, IdType),
-      Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
+      case is_binary(UnitID) of
+        true -> UnitID = binary_to_list(UnitID);
+        false -> UnitID = UnitID
+      end,
+      Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ get_string_unit_id(UnitID)),
       
       (Hash rem 10000) < (PassPercent * 100)
+  end.
+
+get_string_unit_id(UnitID) ->
+  case is_binary(UnitID) of
+      true -> UnitID = binary_to_list(UnitID);
+      false -> UnitID = UnitID
   end.
