@@ -21,7 +21,7 @@ init([ApiKey]) ->
     statsig_store,
     [set, named_table, {keypos, 1}, {heir, none}, {read_concurrency, true}]
   ),
-  case network:request(ApiKey, "download_config_specs", #{<<"lastSyncTime">> => 0}) of
+  case network:request(ApiKey, "download_config_specs", #{<<"sinceTime">> => 0}) of
     false -> {stop, "Initialize Failed"};
 
     Body ->
@@ -73,7 +73,7 @@ handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Ti
 
 
 handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
-  case network:request(ApiKey, "download_config_specs", #{<<"lastSyncTime">> => Time}) of
+  case network:request(ApiKey, "download_config_specs", #{<<"sinceTime">> => Time}) of
     false -> unknown;
     Body -> parse_and_save_specs(Body)
   end,
