@@ -328,21 +328,29 @@ number_compare(A, B, Comparison) ->
   NumB = get_number(B),
   Comparison(NumA, NumB).
 
-
 get_number(Val) ->
   if
-    is_integer(Val) -> Val * 1.0;
-    is_binary(Val) -> list_to_num(binary_to_list(Val));
-    is_list(Val) -> list_to_num(Val);
-    is_float(Val) -> Val;
-    true -> Val
+    is_integer(Val) -> 
+      Val * 1.0;
+    is_binary(Val) -> 
+      list_to_num(binary_to_list(Val));
+    is_list(Val) -> 
+      list_to_num(Val);
+    is_float(Val) -> 
+      Val;
+    true -> 
+      Val
   end.
 
-
+list_to_num([]) ->
+  0.0;
+list_to_num([N]) ->
+  list_to_num(N);
 list_to_num(N) ->
   case string:to_float(N) of
-    {error, no_float} -> float(list_to_integer(N));
-    {F, _Rest} -> float(F)
+    {error, no_float} -> 
+      list_to_integer(N) * 1.0;
+    {F, _Rest} -> F
   end.
 
 
@@ -452,7 +460,7 @@ get_evaluation_value(User, Condition) ->
     <<"user_bucket">> ->
       AdditionValues = maps:get(<<"additionalValues">>, Condition, #{}),
       Salt = binary_to_list(maps:get(<<"salt">>, AdditionValues, <<"">>)),
-      UnitID = binary_to_list(get_unit_id(User, IdType)),
+      UnitID = get_unit_id(User, IdType),
       UserHash = compute_user_hash(Salt ++ "." ++ UnitID),
       {false, false, UserHash rem 1000, []};
 
@@ -512,14 +520,15 @@ get_unit_id(User, IdType) ->
       if
         Custom == null -> <<"">>;
         Custom == [] -> <<"">>;
-        true -> Custom
+        true -> 
+          get_string_value(Custom)
       end;
 
     true ->
       UserID = maps:get(IdType, User, null),
       if
         UserID == null -> <<"">>;
-        true -> UserID
+        true -> get_string_value(UserID)
       end
   end.
 
@@ -543,17 +552,21 @@ eval_pass_percent(User, Rule, ConfigSpec) ->
         binary_to_list(maps:get(<<"salt">>, Rule, maps:get(<<"id">>, Rule, <<"">>))),
       IdType = maps:get(<<"idType">>, Rule, ""),
       UnitID = get_unit_id(User, IdType),
-      case is_binary(UnitID) of
-        true -> UnitID = binary_to_list(UnitID);
-        false -> UnitID = UnitID
-      end,
-      Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ get_string_unit_id(UnitID)),
+      Hash = compute_user_hash(ConfigSalt ++ "." ++ RuleSalt ++ "." ++ UnitID),
       
       (Hash rem 10000) < (PassPercent * 100)
   end.
 
-get_string_unit_id(UnitID) ->
-  case is_binary(UnitID) of
-      true -> UnitID = binary_to_list(UnitID);
-      false -> UnitID = UnitID
+get_string_value(UnitID) ->
+  if
+    is_integer(UnitID) -> 
+      integer_to_binary(UnitID);
+    is_binary(UnitID) -> 
+      UnitID;
+    is_float(UnitID) -> 
+      float_to_binary(UnitID);
+    is_list(UnitID) -> 
+      list_to_binary(UnitID);
+    true -> 
+      UnitID
   end.
