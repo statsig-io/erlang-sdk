@@ -126,6 +126,8 @@ handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
   {reply, #{value => JsonValue, rule_id => RuleID}, [{log_events, NextEvents}, {api_key, ApiKey}]}.
 
 
+handle_events([], _ApiKey) ->
+  [];
 handle_events(Events, ApiKey) ->
   BatchSize = application:get_env(statsig, statsig_flush_batch_size, 500),
   BucketsOfEvents = utils:partition(Events, BatchSize),
@@ -135,12 +137,12 @@ handle_events(Events, ApiKey) ->
 unsent_events([], _ApiKey) ->
   [];
 unsent_events([HEvents|TEvents], ApiKey) -> 
-  Input = #{<<"events">> => TEvents},
+  Input = #{<<"events">> => HEvents},
   case network:request(ApiKey, "rgstr", Input) of
     false ->
-      [TEvents | unsent_events(HEvents, ApiKey)];
-    true ->
-      unsent_events(HEvents, ApiKey)
+      [TEvents | unsent_events(TEvents, ApiKey)];
+    _ ->
+      unsent_events(TEvents, ApiKey)
   end.
   
 

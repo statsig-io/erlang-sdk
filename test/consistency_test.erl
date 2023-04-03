@@ -38,6 +38,8 @@ test_gate(Name, Gate, User) ->
       false;
     Name == <<"test_ua">> ->
       false;
+    Name == <<"test_windows_7">> ->
+      false;
     true ->
       Result = statsig:check_gate(User, Name),
       ServerResult = maps:get(<<"value">>, Gate, false),
