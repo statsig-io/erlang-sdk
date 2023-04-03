@@ -17,7 +17,7 @@ gate_test() ->
   statsig:log_event(#{<<"userID">> => <<"321">>}, <<"newevent">>, 12, #{<<"test">> => <<"val">>}),
   statsig:log_event(#{<<"userID">> => <<"456">>}, <<"custom_event">>, <<"hello">>, #{<<"123">> => <<"444">>}),
   statsig:log_event(#{<<"userID">> => <<"12345">>}, <<"custom_event">>, #{<<"test">> => <<"val">>}),
-  statsig:flush(),
+  statsig:flush_sync(),
   application:stop(statsig).
 
 test_input(Input) ->

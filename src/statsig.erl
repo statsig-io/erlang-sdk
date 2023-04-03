@@ -11,7 +11,8 @@
     get_experiment/2,
     log_event/3,
     log_event/4,
-    flush/0
+    flush/0,
+    flush_sync/0
   ]
 ).
 
@@ -41,7 +42,8 @@ log_event(User, EventName, Metadata) ->
   gen_server:cast(
     statsig_server,
     {log, NormalizedUser, EventName, undefined, Metadata}
-  ).
+  ),
+  ok.
 
 
 -spec log_event(map(), binary(), binary() | number(), map()) -> ok.
@@ -50,10 +52,19 @@ log_event(User, EventName, Value, Metadata) ->
   gen_server:cast(
     statsig_server,
     {log, NormalizedUser, EventName, Value, Metadata}
-  ).
+  ),
+  ok.
 
 
 -spec flush() -> ok.
-flush() -> gen_server:cast(statsig_server, flush).
+flush() ->
+  gen_server:cast(statsig_server, {flush}),
+  ok.
+
+
+-spec flush_sync() -> ok.
+flush_sync() ->
+  gen_server:call(statsig_server, {flush}),
+  ok.
 
 stop(_State) -> ok.
