@@ -79,7 +79,7 @@ handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}, {last_sync
   end,
   Delay = application:get_env(statsig, statsig_polling_interval, 60000),
   erlang:send_after(Delay, self(), download_specs),
-  {noreply, [{log_events, Events}, {api_key, ApiKey}]};
+  {noreply, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]};
 
 handle_info(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
