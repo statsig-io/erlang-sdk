@@ -59,7 +59,6 @@ save_specs([H | T], Type) ->
   end,
   save_specs(T, Type).
 
-
 handle_cast(
   {log, User, EventName, Value, Metadata},
   [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]
@@ -87,11 +86,14 @@ handle_info(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Ti
 
 handle_info(_In, State) -> {noreply, State}.
 
-
+handle_call({flush}, _From, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
+  Unsent = handle_events(Events, ApiKey),
+  {reply, length(Unsent), [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]};
 handle_call({Type, User, Name}, _From, State) ->
   case Type of
     gate -> handle_gate(User, Name, State);
-    _Other -> handle_config(User, Name, State)
+    config -> handle_config(User, Name, State);
+    _ -> {noreply, State}
   end.
 
 
