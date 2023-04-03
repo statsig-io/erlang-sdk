@@ -21,16 +21,16 @@ init([ApiKey]) ->
     statsig_store,
     [set, named_table, {keypos, 1}, {heir, none}, {read_concurrency, true}]
   ),
-  case network:request(ApiKey, "download_config_specs", #{}) of
+  case network:request(ApiKey, "download_config_specs", #{<<"lastSyncTime">> => 0}) of
     false -> {stop, "Initialize Failed"};
 
     Body ->
-      parse_and_save_specs(Body),
+      Time = parse_and_save_specs(Body),
       Delay = application:get_env(statsig, statsig_polling_interval, 60000),
       FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
       erlang:send_after(Delay, self(), download_specs),
       erlang:send_after(FlushDelay, self(), handle_events),
-      {ok, [{log_events, []}, {api_key, ApiKey}]}
+      {ok, [{log_events, []}, {api_key, ApiKey}, {last_sync_time, Time}]}
   end.
 
 
@@ -40,11 +40,12 @@ parse_and_save_specs(Body) ->
     Gates = maps:get(<<"feature_gates">>, Specs, []),
     save_specs(Gates, feature_gate),
     Configs = maps:get(<<"dynamic_configs">>, Specs, []),
-    save_specs(Configs, dynamic_config)
+    save_specs(Configs, dynamic_config),
+    maps:get(<<"time">>, Specs, 0)
   catch
     error : _Error ->
       % no op - will be retried after the polling interval
-      ok
+      0
   end.
 
 
@@ -61,18 +62,18 @@ save_specs([H | T], Type) ->
 
 handle_cast(
   {log, User, EventName, Value, Metadata},
-  [{log_events, Events}, {api_key, ApiKey}]
+  [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]
 ) ->
   Event = logging:get_event(User, EventName, Value, Metadata),
-  {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}]};
+  {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}, {last_sync_time, Time}]};
 
-handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
+handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
-  {noreply, [{log_events, Unsent}, {api_key, ApiKey}]}.
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
 
-handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
-  case network:request(ApiKey, "download_config_specs", #{}) of
+handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
+  case network:request(ApiKey, "download_config_specs", #{<<"lastSyncTime">> => Time}) of
     false -> unknown;
     Body -> parse_and_save_specs(Body)
   end,
@@ -80,9 +81,9 @@ handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}]) ->
   erlang:send_after(Delay, self(), download_specs),
   {noreply, [{log_events, Events}, {api_key, ApiKey}]};
 
-handle_info(flush, [{log_events, Events}, {api_key, ApiKey}]) ->
+handle_info(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
-  {noreply, [{log_events, Unsent}, {api_key, ApiKey}]};
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]};
 
 handle_info(_In, State) -> {noreply, State}.
 
@@ -94,7 +95,7 @@ handle_call({Type, User, Name}, _From, State) ->
   end.
 
 
-handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}]) ->
+handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   {_Rule, GateValue, _JsonValue, RuleID, SecondaryExposures} =
     evaluator:find_and_eval(User, Gate, feature_gate),
   GateExposure =
@@ -109,10 +110,10 @@ handle_gate(User, Gate, [{log_events, Events}, {api_key, ApiKey}]) ->
       SecondaryExposures
     ),
   NextEvents = [GateExposure | Events],
-  {reply, GateValue, [{log_events, NextEvents}, {api_key, ApiKey}]}.
+  {reply, GateValue, [{log_events, NextEvents}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
 
-handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
+handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   {_Rule, _GateValue, JsonValue, RuleID, SecondaryExposures} =
     evaluator:find_and_eval(User, Config, dynamic_config),
   ConfigExposure =
@@ -123,7 +124,7 @@ handle_config(User, Config, [{log_events, Events}, {api_key, ApiKey}]) ->
       SecondaryExposures
     ),
   NextEvents = [ConfigExposure | Events],
-  {reply, #{value => JsonValue, rule_id => RuleID}, [{log_events, NextEvents}, {api_key, ApiKey}]}.
+  {reply, #{value => JsonValue, rule_id => RuleID}, [{log_events, NextEvents}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
 
 handle_events([], _ApiKey) ->
@@ -146,6 +147,6 @@ unsent_events([HEvents|TEvents], ApiKey) ->
   end.
   
 
-terminate(_Reason, [{log_events, Events}, {api_key, ApiKey}]) ->
+terminate(_Reason, [{log_events, Events}, {api_key, ApiKey, {last_sync_time, _Time}}]) ->
   handle_events(Events, ApiKey),
   ok.
