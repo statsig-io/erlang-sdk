@@ -141,7 +141,7 @@ unsent_events([HEvents|TEvents], ApiKey) ->
   Input = #{<<"events">> => HEvents},
   case network:request(ApiKey, "rgstr", Input) of
     false ->
-      [TEvents | unsent_events(TEvents, ApiKey)];
+      [HEvents | unsent_events(TEvents, ApiKey)];
     _ ->
       unsent_events(TEvents, ApiKey)
   end.
