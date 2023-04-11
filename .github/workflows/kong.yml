@@ -1,33 +1,40 @@
-name: kong
+name: KONG
+
+env:
+  test_api_key: ${{ secrets.KONG_SERVER_SDK_KEY }}
+  test_client_key: ${{ secrets. KONG_CLIENT_SDK_KEY }}
+  repo_pat: ${{ secrets.KONG_FINE_GRAINED_REPO_PAT }}
+  FORCE_COLOR: true
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 0/4 * * *"
   pull_request:
     branches: [main]
   push:
     branches: [main]
 
 jobs:
-  kong:
-    needs: update-cache
-    timeout-minutes: 10
+  KONG:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
+      - name: Get KONG
+        run: |
+          git clone https://oauth2:$repo_pat@github.com/statsig-io/kong.git .
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/setup-node@v1
         with:
-          name: kong-cache
-          path: ~/tmp/kong/cache
+          node-version: "16.x"
 
       - name: Install Deps
         run: npm install
 
-      - name: Setup erlang SDK
+      - name: Setup Erlang SDK
         run: npm run kong -- setup erlang -v
 
-      - name: Build Bridge Image
+      - name: Build Bridge
         run: npm run kong -- build erlang -v
 
       - name: Run Tests
