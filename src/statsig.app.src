@@ -1,6 +1,6 @@
 {application, statsig,
  [{description, "Statsig SDK for erlang and elixir"},
-  {vsn, "0.1.0"},
+  {vsn, "0.0.1"},
   {registered, []},
   {mod, {statsig, []}},
   {applications,
