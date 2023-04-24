@@ -28,7 +28,7 @@ defmodule Statsig.MixProject do
     [
       {:hackney, "~> 1.18.1"},
       {:jiffy, "~> 1.1.1"},
-      {:ex_doc, "~> 0.27", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.27", only: :dev, runtime: false},
     ]
   end
 
