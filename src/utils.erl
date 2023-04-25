@@ -23,7 +23,7 @@ get_statsig_metadata() ->
   }.
 
 -spec get_sdk_version() -> list().
-get_sdk_version() -> "0.1.0".
+get_sdk_version() -> "0.0.2".
 
 -spec get_sdk_type() -> list().
 get_sdk_type() -> "erlang-server".
