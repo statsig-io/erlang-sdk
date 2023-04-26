@@ -1,4 +1,4 @@
-defmodule MyProject.MixProject do
+defmodule Statsig.MixProject do
   use Mix.Project
 
   def project() do
@@ -18,9 +18,9 @@ defmodule MyProject.MixProject do
     "An erlang/elixir SDK for Statsig feature gates and experiments"
   end
 
-
   def application() do
     [
+      mod: {:statsig, []}
     ]
   end
 
