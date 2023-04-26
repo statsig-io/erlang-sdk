@@ -66,7 +66,7 @@ handle_cast(
   Event = logging:get_event(User, EventName, Value, Metadata),
   {noreply, [{log_events, [Event | Events]}, {api_key, ApiKey}, {last_sync_time, Time}]};
 
-handle_cast(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
+handle_cast({flush}, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
   {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
