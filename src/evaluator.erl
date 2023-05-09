@@ -11,7 +11,7 @@ find_and_eval(User, Name, Type) ->
       [[Spec]] = Specs,
       eval(User, Spec);
 
-    _Other -> {#{}, false, #{}, "", []}
+    _Other -> {#{}, false, #{}, "Unrecognized", []}
   end.
 
 
@@ -82,7 +82,6 @@ eval_condition(User, Condition) ->
     true -> {ConditionResult, Exposures}
   end.
 
-
 get_evaluation_comparison(Condition, Value) ->
   Operator = string:casefold(maps:get(<<"operator">>, Condition, "")),
   Target = maps:get(<<"targetValue">>, Condition, ""),
@@ -93,67 +92,67 @@ compare(Value, Operator, Target) ->
   case Operator of
     <<"gt">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> Value > Target
       end;
 
     <<"gte">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> Value >= Target
       end;
 
     <<"lt">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> Value < Target
       end;
 
     <<"lte">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> Value =< Target
       end;
 
     <<"version_gt">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result > 0 end)
       end;
 
     <<"version_gte">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result >= 0 end)
       end;
 
     <<"version_lt">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result < 0 end)
       end;
 
     <<"version_lte">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result =< 0 end)
       end;
 
     <<"version_eq">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result == 0 end)
       end;
 
     <<"version_neq">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
         true -> version_compare(Value, Target, fun (Result) -> Result /= 0 end)
       end;
 
     <<"any">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           list_any(
@@ -165,7 +164,7 @@ compare(Value, Operator, Target) ->
 
     <<"none">> ->
       if
-        Value == null -> true;
+        Value == null orelse Target == null -> true;
 
         true ->
           (
@@ -180,7 +179,7 @@ compare(Value, Operator, Target) ->
 
     <<"any_case_sensitive">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           list_any(
@@ -192,7 +191,7 @@ compare(Value, Operator, Target) ->
 
     <<"none_case_sensitive">> ->
       if
-        Value == null -> true;
+        Value == null orelse Target == null -> true;
 
         true ->
           not
@@ -205,7 +204,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_starts_with_any">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           list_any(
@@ -223,7 +222,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_ends_with_any">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           list_any(
@@ -241,7 +240,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_contains_any">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           list_any(
@@ -256,7 +255,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_contains_none">> ->
       if
-        Value == null -> true;
+        Value == null orelse Target == null -> true;
 
         true ->
           not
@@ -272,7 +271,7 @@ compare(Value, Operator, Target) ->
 
     <<"str_matches">> ->
       if
-        Value == null -> false;
+        Value == null orelse Target == null -> false;
 
         true ->
           case re:run(Value, Target) of
@@ -465,7 +464,7 @@ get_evaluation_value(User, Condition) ->
       {false, false, UserHash rem 1000, []};
 
     <<"unit_id">> -> {false, false, get_unit_id(User, IdType), []};
-    % TODO ip_based, ua_based, current_time
+    % TODO ip_based, ua_based
     _ ->
       erlang:display("UNSUPPORTED TYPE"),
       erlang:display(Type),
