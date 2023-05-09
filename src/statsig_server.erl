@@ -1,7 +1,5 @@
 -module(statsig_server).
 
--include_lib("kernel/include/logger.hrl").
-
 -behaviour(gen_server).
 
 -export(
