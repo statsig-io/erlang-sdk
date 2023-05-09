@@ -1,5 +1,7 @@
 -module(statsig_server).
 
+-include_lib("kernel/include/logger.hrl").
+
 -behaviour(gen_server).
 
 -export(
@@ -89,9 +91,9 @@ handle_info(handle_events, [{log_events, Events}, {api_key, ApiKey}, {last_sync_
 
 handle_info(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
-  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]};
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
-handle_info(_In, State) -> {noreply, State}.
+% handle_info(_In, State) -> {noreply, State}.
 
 handle_call({flush}, _From, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
