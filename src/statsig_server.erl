@@ -50,6 +50,12 @@ handle_cast({flush}, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, 
   Unsent = handle_events(Events, ApiKey),
   {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
+handle_info(handle_events, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
+  Unsent = handle_events(Events, ApiKey),
+  FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
+  erlang:send_after(FlushDelay, self(), handle_events),
+  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]};
+
 handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   NewTime = get_and_save_config_specs(ApiKey, Time),
   Delay = application:get_env(statsig, statsig_polling_interval, 60000),
