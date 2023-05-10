@@ -16,38 +16,18 @@
 start_link(ApiKey) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [ApiKey], []).
 
+
 init([ApiKey]) ->
   ets:new(
     statsig_store,
     [set, named_table, {keypos, 1}, {heir, none}, {read_concurrency, true}]
   ),
-  case network:request(ApiKey, "download_config_specs", #{<<"sinceTime">> => 0}) of
-    false -> {stop, "Initialize Failed"};
-
-    Body ->
-      Time = parse_and_save_specs(Body),
-      Delay = application:get_env(statsig, statsig_polling_interval, 60000),
-      FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
-      erlang:send_after(Delay, self(), download_specs),
-      erlang:send_after(FlushDelay, self(), handle_events),
-      {ok, [{log_events, []}, {api_key, ApiKey}, {last_sync_time, Time}]}
-  end.
-
-
-parse_and_save_specs(Body) ->
-  try
-    Specs = jiffy:decode(Body, [return_maps]),
-    Gates = maps:get(<<"feature_gates">>, Specs, []),
-    save_specs(Gates, feature_gate),
-    Configs = maps:get(<<"dynamic_configs">>, Specs, []),
-    save_specs(Configs, dynamic_config),
-    maps:get(<<"time">>, Specs, 0)
-  catch
-    error : _Error ->
-      % no op - will be retried after the polling interval
-      0
-  end.
-
+  Time = get_and_save_config_specs(ApiKey, 0),
+  Delay = application:get_env(statsig, statsig_polling_interval, 60000),
+  FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
+  erlang:send_after(Delay, self(), download_specs),
+  erlang:send_after(FlushDelay, self(), handle_events),
+  {ok, [{log_events, []}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
 save_specs([], _Type) -> ok;
 
@@ -70,22 +50,11 @@ handle_cast({flush}, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, 
   Unsent = handle_events(Events, ApiKey),
   {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]}.
 
-
 handle_info(download_specs, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
-  case network:request(ApiKey, "download_config_specs", #{<<"sinceTime">> => Time}) of
-    false -> unknown;
-    Body -> parse_and_save_specs(Body)
-  end,
+  NewTime = get_and_save_config_specs(ApiKey, Time),
   Delay = application:get_env(statsig, statsig_polling_interval, 60000),
   erlang:send_after(Delay, self(), download_specs),
-  {noreply, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]};
-
-handle_info(handle_events, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
-  Unsent = handle_events(Events, ApiKey),
-  FlushDelay = application:get_env(statsig, statsig_flush_interval, 60000),
-  erlang:send_after(FlushDelay, self(), handle_events),
-  {noreply, [{log_events, Unsent}, {api_key, ApiKey}, {last_sync_time, Time}]};
-
+  {noreply, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, NewTime}]};
 
 handle_info(flush, [{log_events, Events}, {api_key, ApiKey}, {last_sync_time, Time}]) ->
   Unsent = handle_events(Events, ApiKey),
@@ -154,7 +123,28 @@ unsent_events([HEvents|TEvents], ApiKey) ->
     _ ->
       unsent_events(TEvents, ApiKey)
   end.
-  
+
+
+parse_and_save_specs(Body) ->
+  try
+    Specs = jiffy:decode(Body, [return_maps]),
+    Gates = maps:get(<<"feature_gates">>, Specs, []),
+    save_specs(Gates, feature_gate),
+    Configs = maps:get(<<"dynamic_configs">>, Specs, []),
+    save_specs(Configs, dynamic_config),
+    maps:get(<<"time">>, Specs, 0)
+  catch
+    error : _Error ->
+      % no op - will be retried after the polling interval
+      0
+  end.
+
+get_and_save_config_specs(ApiKey, Time) -> 
+  case network:request(ApiKey, "download_config_specs", #{<<"sinceTime">> => Time}) of
+    false -> Time;
+    Body -> 
+      parse_and_save_specs(Body)
+  end.
 
 terminate(_Reason, [{log_events, Events}, {api_key, ApiKey, {last_sync_time, _Time}}]) ->
   handle_events(Events, ApiKey),
