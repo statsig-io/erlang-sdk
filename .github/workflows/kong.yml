@@ -25,7 +25,7 @@ jobs:
         run: |
           git clone https://oauth2:$repo_pat@github.com/statsig-io/kong.git .
 
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@f1f314fca9dfce2769ece7d933488f076716723e # v1
         with:
           node-version: "16.x"
 
