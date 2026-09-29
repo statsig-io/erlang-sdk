@@ -19,7 +19,7 @@ jobs:
   KONG:
     if: github.event_name != 'schedule' || github.repository.private
     timeout-minutes: 5
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Get KONG
         run: |
